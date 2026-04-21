@@ -11,11 +11,13 @@ app.initializers.add('yannisme-melon-category-cards', function(app) {
   function melonT(key, params) {
     try {
       if (window.app && window.app.translator) {
-        var str = app.translator.trans('yannisme-melon.forum.' + key);
-        // Manual parameter replacement to avoid ICU number formatting (e.g. "9, categories")
+        var result = app.translator.trans('yannisme-melon.forum.' + key);
+        // Flarum may return a FormattedString object, convert to plain string
+        var str = (result && typeof result.toString === 'function') ? result.toString() : String(result);
+        // Manual %param% replacement (ICU-safe, avoids number formatting issues)
         if (params && typeof str === 'string') {
           Object.keys(params).forEach(function(k) {
-            str = str.replace(new RegExp('\\{' + k + '\\}', 'g'), params[k]);
+            str = str.split('%' + k + '%').join(String(params[k]));
           });
         }
         return str;
@@ -237,66 +239,9 @@ app.initializers.add('yannisme-melon-category-cards', function(app) {
     var allTags = {};
     tags.forEach(function(t) { allTags[t.id] = t; });
 
-    if (window.app && app.store) {
-      try {
-        var storeDiscs = app.store.all('discussions');
-        if (storeDiscs && storeDiscs.length > 0) {
-          // If store has very few discussions, it might be stale from a tag page visit.
-          // Fetch fresh data from API to ensure we have all discussions.
-          if (storeDiscs.length < 3) {
-            fetchHomepageDiscussions(container, tags, allTags);
-            return;
-          }
-
-          var discussions = [];
-
-          storeDiscs.forEach(function(model) {
-            var d = model.data;
-            if (!d) return;
-
-            // Use Flarum model's isHidden() method if available, else check attributes
-            var isHidden = false;
-            if (typeof model.isHidden === 'function') {
-              isHidden = model.isHidden();
-            } else if (d.attributes.isHidden !== undefined) {
-              isHidden = d.attributes.isHidden;
-            } else if (d.attributes.hiddenAt) {
-              isHidden = !!d.attributes.hiddenAt;
-            }
-
-            // Get likes from firstPost
-            d._likesCount = 0;
-            if (d.relationships && d.relationships.firstPost && d.relationships.firstPost.data) {
-              var fp = app.store.getById('posts', d.relationships.firstPost.data.id);
-              if (fp && fp.data && fp.data.attributes) d._likesCount = fp.data.attributes.likesCount || 0;
-            }
-
-            // Get author name
-            if (d.relationships && d.relationships.user && d.relationships.user.data) {
-              var u = app.store.getById('users', d.relationships.user.data.id);
-              if (u && u.data && u.data.attributes) d._authorName = u.data.attributes.displayName || u.data.attributes.username;
-            }
-
-            // Override isHidden in attributes so renderHomepage can read it
-            d.attributes.isHidden = isHidden;
-
-            discussions.push(d);
-          });
-
-          discussions.sort(function(a, b) {
-            return new Date(b.attributes.createdAt || 0) - new Date(a.attributes.createdAt || 0);
-          });
-
-          renderHomepage(container, tags, discussions, {}, allTags);
-          return;
-        }
-      } catch(e) {
-        console.error('[Melon] Store build failed:', e);
-      }
-    }
-
-    // Fallback: REST API (won't include hidden posts, but better than nothing)
-    buildFromRESTAPI(container, tags);
+    // Always fetch fresh discussions from API to avoid stale store data
+    // (e.g. after visiting a tag page, store only contains that tag's discussions)
+    fetchHomepageDiscussions(container, tags, allTags);
   }
 
   // Fallback: REST API
@@ -1418,6 +1363,13 @@ app.initializers.add('yannisme-melon-category-cards', function(app) {
             var target = document.getElementById('melon-disc-floor-' + val);
             if (target) {
               target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            } else {
+              // Floor not in DOM yet — navigate via URL hash to trigger Flarum lazy-load
+              // Flarum uses /d/{id}/{nearNumber} to load posts near that number
+              var nearNum = Math.max(1, val - 1); // Flarum's near param is 0-based for replies
+              var currentPath = window.location.pathname.replace(/\/\d+\/?\s*$/, '');
+              history.pushState(null, '', currentPath + '/' + nearNum);
+              window.dispatchEvent(new Event('locationchange'));
             }
           }
         });
@@ -1676,7 +1628,13 @@ app.initializers.add('yannisme-melon-category-cards', function(app) {
 
     // Add floor numbers to all visible posts (skip hidden EventPosts)
     var allItems = targetItems || page.querySelectorAll('.PostStream-item');
-    var floorIndex = 0;
+    // Find the highest existing floor number to continue from there
+    var maxFloor = 0;
+    page.querySelectorAll('[data-melon-floor]').forEach(function(el) {
+      var f = parseInt(el.getAttribute('data-melon-floor'), 10);
+      if (f > maxFloor) maxFloor = f;
+    });
+    var floorIndex = maxFloor;
     allItems.forEach(function(item) {
       if (item.classList.contains('melon-disc-styled')) return;
       // Skip hidden EventPosts and ReplyPlaceholder

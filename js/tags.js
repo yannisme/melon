@@ -8,10 +8,11 @@ app.initializers.add('yannisme-melon-tags', function(app) {
   function melonT(key, params) {
     try {
       if (window.app && window.app.translator) {
-        var str = app.translator.trans('yannisme-melon.forum.' + key);
+        var result = app.translator.trans('yannisme-melon.forum.' + key);
+        var str = (result && typeof result.toString === 'function') ? result.toString() : String(result);
         if (params && typeof str === 'string') {
           Object.keys(params).forEach(function(k) {
-            str = str.replace(new RegExp('\\{' + k + '\\}', 'g'), params[k]);
+            str = str.split('%' + k + '%').join(String(params[k]));
           });
         }
         return str;
