@@ -1,0 +1,29 @@
+{
+    "name": "yannisme/melon",
+    "description": "A fresh, modular Flarum 2.0 theme with brand customization, dark mode, and layout options.",
+    "type": "flarum-extension",
+    "keywords": ["flarum", "theme", "melon"],
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "yannisme"
+        }
+    ],
+    "require": {
+        "flarum/core": "^2.0.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Yannisme\\Melon\\": "src/"
+        }
+    },
+    "extra": {
+        "flarum-extension": {
+            "title": "Melon",
+            "category": "theme",
+            "icon": {
+                "image": "icon.svg"
+            }
+        }
+    }
+}

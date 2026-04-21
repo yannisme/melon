@@ -1,0 +1,104 @@
+<?php
+
+namespace Yannisme\Melon;
+
+use Flarum\Extend;
+use Yannisme\Melon\Content\InjectModuleClasses;
+
+return [
+    // Admin settings page
+    (new Extend\Frontend('admin'))
+        ->js(__DIR__.'/js/dist/admin.js'),
+
+    // Forum frontend
+    (new Extend\Frontend('forum'))
+        ->css(__DIR__.'/css/forum.css')
+        ->css(__DIR__.'/css/discussion-page.css')
+        ->js(__DIR__.'/js/dist/forum.js')
+        ->content(InjectModuleClasses::class),
+
+    // Load translations
+    new Extend\Locales(__DIR__.'/locale'),
+
+    // Settings with defaults
+    (new Extend\Settings())
+        ->serializeToForum('melonBrandEnabled', 'melon.brand_enabled', 'boolval')
+        ->serializeToForum('melonPrimaryColor', 'melon.primary_color')
+        ->serializeToForum('melonHeaderBg', 'melon.header_bg')
+        ->serializeToForum('melonHeaderTextColor', 'melon.header_text_color')
+        ->serializeToForum('melonBorderRadius', 'melon.border_radius')
+        ->serializeToForum('melonDarkEnabled', 'melon.dark_enabled', 'boolval')
+        ->serializeToForum('melonDarkBg', 'melon.dark_bg')
+        ->serializeToForum('melonDarkSurface', 'melon.dark_surface')
+        ->serializeToForum('melonDarkText', 'melon.dark_text')
+        ->serializeToForum('melonLayoutEnabled', 'melon.layout_enabled', 'boolval')
+        ->serializeToForum('melonCompactMode', 'melon.compact_mode', 'boolval')
+        ->serializeToForum('melonCardStyle', 'melon.card_style')
+        ->serializeToForum('melonHideSidebar', 'melon.hide_sidebar', 'boolval')
+        ->serializeToForum('melonAvatarSize', 'melon.avatar_size')
+        ->serializeToForum('melonCategoryCardsEnabled', 'melon.category_cards_enabled', 'boolval')
+        ->serializeToForum('melonTagsCloudEnabled', 'melon.tags_cloud_enabled', 'boolval')
+        ->serializeToForum('melonTagsCloudShowTitles', 'melon.tags_cloud_show_titles', 'boolval')
+        ->serializeToForum('melonTagDiscussionsEnabled', 'melon.tag_discussions_enabled', 'boolval')
+        ->serializeToForum('melonTagDiscussionsShowExcerpt', 'melon.tag_discussions_show_excerpt', 'boolval')
+        ->serializeToForum('melonTagDiscussionsShowLikes', 'melon.tag_discussions_show_likes', 'boolval')
+        ->serializeToForum('melonTagDiscussionsShowReplies', 'melon.tag_discussions_show_replies', 'boolval')
+        ->serializeToForum('melonDiscussionPageEnabled', 'melon.discussion_page_enabled', 'boolval')
+        ->serializeToForum('melonDiscussionPageFloorJump', 'melon.discussion_page_floor_jump', 'boolval')
+        ->serializeToForum('melonDiscussionPageParticipants', 'melon.discussion_page_participants', 'boolval')
+        ->serializeToForum('melonDiscussionPageEvents', 'melon.discussion_page_events', 'boolval')
+        ->serializeToForum('melonDiscussionPageFloorNumber', 'melon.discussion_page_floor_number', 'boolval')
+        ->serializeToForum('melonDiscussionPageHeaderTime', 'melon.discussion_page_header_time', 'boolval')
+        ->serializeToForum('melonCssDiscTitleSize', 'melon.css_disc_title_size')
+        ->serializeToForum('melonCssDiscTitleWeight', 'melon.css_disc_title_weight')
+        ->serializeToForum('melonCssDiscMetaSize', 'melon.css_disc_meta_size')
+        ->serializeToForum('melonCssDiscMetaGap', 'melon.css_disc_meta_gap')
+        ->serializeToForum('melonCssDiscTagSize', 'melon.css_disc_tag_size')
+        ->serializeToForum('melonCssDiscTagRadius', 'melon.css_disc_tag_radius')
+        ->serializeToForum('melonCssDiscPostGap', 'melon.css_disc_post_gap')
+        ->serializeToForum('melonCssDiscAvatarSize', 'melon.css_disc_avatar_size')
+        ->serializeToForum('melonCssDiscPageMaxWidth', 'melon.css_disc_page_max_width')
+        ->serializeToForum('melonCssDiscSidebarWidth', 'melon.css_disc_sidebar_width')
+        ->serializeToForum('melonCssDiscFloorNumSize', 'melon.css_disc_floor_num_size')
+        ->serializeToForum('melonCssDiscSoftDeletedOpacity', 'melon.css_disc_soft_deleted_opacity')
+        // Defaults
+        ->default('melon.brand_enabled', true)
+        ->default('melon.primary_color', '#4ade80')
+        ->default('melon.header_bg', '#f0fdf4')
+        ->default('melon.header_text_color', '#166534')
+        ->default('melon.border_radius', '12')
+        ->default('melon.dark_enabled', false)
+        ->default('melon.dark_bg', '#0f172a')
+        ->default('melon.dark_surface', '#1e293b')
+        ->default('melon.dark_text', '#e2e8f0')
+        ->default('melon.layout_enabled', false)
+        ->default('melon.compact_mode', false)
+        ->default('melon.card_style', 'rounded')
+        ->default('melon.hide_sidebar', false)
+        ->default('melon.avatar_size', '44')
+        ->default('melon.category_cards_enabled', false)
+        ->default('melon.tags_cloud_enabled', false)
+        ->default('melon.tags_cloud_show_titles', true)
+        ->default('melon.tag_discussions_enabled', false)
+        ->default('melon.tag_discussions_show_excerpt', true)
+        ->default('melon.tag_discussions_show_likes', true)
+        ->default('melon.tag_discussions_show_replies', true)
+        ->default('melon.discussion_page_enabled', false)
+        ->default('melon.discussion_page_floor_jump', true)
+        ->default('melon.discussion_page_participants', true)
+        ->default('melon.discussion_page_events', true)
+        ->default('melon.discussion_page_floor_number', true)
+        ->default('melon.discussion_page_header_time', true)
+        ->default('melon.css_disc_title_size', '15')
+        ->default('melon.css_disc_title_weight', '600')
+        ->default('melon.css_disc_meta_size', '12')
+        ->default('melon.css_disc_meta_gap', '6')
+        ->default('melon.css_disc_tag_size', '11')
+        ->default('melon.css_disc_tag_radius', '4')
+        ->default('melon.css_disc_post_gap', '16')
+        ->default('melon.css_disc_avatar_size', '36')
+        ->default('melon.css_disc_page_max_width', '960')
+        ->default('melon.css_disc_sidebar_width', '280')
+        ->default('melon.css_disc_floor_num_size', '12')
+        ->default('melon.css_disc_soft_deleted_opacity', '0.45'),
+];

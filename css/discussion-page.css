@@ -1,0 +1,734 @@
+/* ═══════════════════════════════════════════════════════════
+   Melon Discussion Page — Timeline Layout
+   Only active when .melon-disc-active is present
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── Anti-flash: only when discussion page module is enabled ── */
+html.melon-disc-page--active .DiscussionPage .Hero,
+html.melon-disc-page--active .DiscussionPage .Page-container {
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+html.melon-disc-page--active .melon-disc-active .Hero,
+html.melon-disc-page--active .melon-disc-active .Page-container {
+    opacity: 1;
+}
+
+/* ── Hide original Hero ── */
+.melon-disc-active .Hero {
+    display: none !important;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Discussion Header
+   ═══════════════════════════════════════════════════════════ */
+.melon-disc-active .melon-disc-title-row {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    flex-wrap: nowrap;
+    margin-bottom: 0;
+}
+
+.melon-disc-active .melon-disc-title {
+    font-size: 20px !important;
+    font-weight: 600 !important;
+    color: var(--text-color, #1a1a2e);
+    margin: 0;
+    line-height: 1.4;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    letter-spacing: -0.01em;
+}
+
+.melon-disc-active .melon-disc-number {
+    font-size: 13px;
+    color: var(--muted-color, #9ca3af);
+    font-weight: 500;
+    flex-shrink: 0;
+}
+
+/* ── Header: full width, outside Page-container ── */
+.melon-disc-active .melon-disc-header {
+    max-width: var(--melon-disc-page-width, 1200px);
+    margin: 0 auto;
+    padding: 16px 24px 12px 24px;
+    border-bottom: 1px solid var(--control-bg, #e5e7eb);
+}
+
+/* ── Page Container: two-column flex layout ── */
+.melon-disc-active .Page-container {
+    display: flex;
+    flex-direction: row;
+    gap: 24px;
+    max-width: var(--melon-disc-page-width, 1200px);
+    margin: 0 auto;
+    padding: 20px 24px;
+}
+
+/* Content area */
+.melon-disc-active .Page-content {
+    flex: 1;
+    min-width: 0;
+    max-width: 100% !important;
+    margin-top: 0 !important;
+    padding: 0;
+}
+
+/* Sidebar area */
+.melon-disc-active .melon-disc-sidebar {
+    width: 220px;
+    flex-shrink: 0;
+    margin-top: 0;
+    padding: 0;
+}
+
+/* Hide original sidebar (scrubber) */
+.melon-disc-active .Page-sidebar {
+    display: none !important;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Sidebar
+   ═══════════════════════════════════════════════════════════ */
+.melon-disc-sidebar-section {
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--control-bg, #f3f4f6);
+}
+
+.melon-disc-sidebar-section:last-child {
+    border-bottom: none;
+}
+
+.melon-disc-sidebar-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted-color, #9ca3af);
+    margin: 0 0 8px 0;
+    text-transform: lowercase;
+}
+
+.melon-disc-sidebar-tag {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 500;
+    background: var(--control-bg, #f3f4f6);
+    color: var(--text-secondary-color, #4b5563);
+    border: 1px solid var(--control-bg, #e5e7eb);
+    text-decoration: none !important;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+}
+
+.melon-disc-sidebar-content {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+/* Tags section: wrap multiple tags per row */
+.melon-disc-sidebar-section:has(.melon-disc-sidebar-tag) .melon-disc-sidebar-content {
+    flex-direction: row;
+    flex-wrap: wrap;
+}
+
+.melon-disc-sidebar-tag:hover {
+    border-color: var(--melon-primary, #4ade80);
+    color: var(--melon-primary, #4ade80);
+}
+
+/* ── Sidebar global: remove Flarum li · separator ── */
+.melon-disc-sidebar li,
+.melon-disc-sidebar li::before,
+.melon-disc-sidebar li::after {
+    list-style: none !important;
+    content: none !important;
+    display: inline !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+/* Also cover post header li */
+.melon-disc-active .Post-header li,
+.melon-disc-active .Post-header li::before,
+.melon-disc-active .Post-header li::after {
+    list-style: none !important;
+    content: none !important;
+}
+
+/* Hide UserOnline indicator in post header */
+.melon-disc-active .Post-header .UserOnline,
+.melon-disc-active .Post-header .online {
+    display: none !important;
+}
+
+/* ── Participants: with identity (avatar + badges inline) ── */
+.melon-disc-sidebar-participant {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 0;
+    flex-wrap: wrap;
+}
+
+.melon-disc-sidebar-participant-badges {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 3px;
+}
+
+.melon-disc-sidebar-participant-badges .Badge,
+.melon-disc-sidebar-participant-badges img {
+    display: inline-flex;
+    align-items: center;
+    padding: 0 5px;
+    border-radius: 8px;
+    font-size: 10px;
+    font-weight: 600;
+    line-height: 1.6;
+    white-space: nowrap;
+}
+
+.melon-disc-sidebar-participant-badges img {
+    height: 16px;
+    width: auto;
+    border-radius: 8px;
+    border: none;
+}
+
+/* ── Participants: without identity (compact avatar stack + overflow) ── */
+.melon-disc-sidebar-avatars {
+    display: flex;
+    align-items: center;
+    padding: 6px 0;
+}
+
+.melon-disc-sidebar-avatars .melon-disc-sidebar-avatar-wrap {
+    margin-left: -8px;
+}
+
+.melon-disc-sidebar-avatars .melon-disc-sidebar-avatar-wrap:first-child {
+    margin-left: 0;
+}
+
+.melon-disc-sidebar-avatar-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid var(--body-bg, #fff);
+    border-radius: 50%;
+    box-shadow: 0 0 0 1px var(--control-bg, #e5e7eb);
+    position: relative;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    text-decoration: none !important;
+}
+
+.melon-disc-sidebar-avatar-wrap:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    z-index: 100 !important;
+}
+
+.melon-disc-sidebar-avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+.melon-disc-sidebar-avatar-placeholder {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--melon-primary, #4ade80);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.melon-disc-sidebar-avatar-overflow {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--control-bg, #e5e7eb);
+    color: var(--muted-color, #6b7280);
+    font-size: 11px;
+    font-weight: 700;
+    margin-left: -8px;
+    border: 2px solid var(--body-bg, #fff);
+    box-shadow: 0 0 0 1px var(--control-bg, #e5e7eb);
+    flex-shrink: 0;
+}
+
+/* ── Events section ── */
+.melon-disc-sidebar-event {
+    font-size: 12px;
+    color: var(--muted-color, #9ca3af);
+    line-height: 1.5;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--control-bg, #f3f4f6);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.melon-disc-sidebar-event:last-child {
+    border-bottom: none;
+}
+
+.melon-disc-sidebar-event-row1 {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+    min-width: 0;
+}
+
+.melon-disc-sidebar-event-icon {
+    font-size: 11px;
+    color: var(--muted-color, #9ca3af);
+    flex-shrink: 0;
+    width: 14px;
+    text-align: center;
+}
+
+.melon-disc-sidebar-event-text {
+    flex: 1;
+    min-width: 0;
+    word-break: break-word;
+}
+
+.melon-disc-sidebar-event-time {
+    font-size: 11px;
+    color: var(--muted-color, #b0b5bf);
+    padding-left: 20px;
+}
+
+.melon-disc-sidebar-event-row2 {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.melon-disc-sidebar-event-controls {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    list-style: none;
+    margin-left: auto;
+    height: 20px;
+}
+
+.melon-disc-sidebar-event-controls li {
+    list-style: none;
+}
+
+.melon-disc-sidebar-event-controls a,
+.melon-disc-sidebar-event-controls button {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 11px;
+    color: var(--muted-color, #9ca3af);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.melon-disc-sidebar-event-controls a:hover,
+.melon-disc-sidebar-event-controls button:hover {
+    background: var(--control-bg, #f3f4f6);
+    color: var(--text-color, #1a1a2e);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Post Stream — Timeline Layout
+   ═══════════════════════════════════════════════════════════ */
+.melon-disc-active .PostStream {
+    position: relative;
+}
+
+/* ── Timeline Column ── */
+.melon-disc-active .PostStream-item {
+    position: relative;
+    padding: 0 0 0 0 !important;
+    margin: 0 0 var(--melon-disc-post-gap, 16px) 0 !important;
+    overflow: visible;
+}
+
+/* Vertical timeline connector */
+.melon-disc-active .PostStream-item:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    left: 19px;
+    top: 52px;
+    bottom: -16px;
+    width: 2px;
+    background: var(--control-bg, #e5e7eb);
+    pointer-events: none;
+    z-index: 0;
+}
+
+/* ── Post Card ── */
+.melon-disc-active .PostStream-item .Post {
+    background: var(--body-bg, #fff);
+    border: none;
+    border-radius: 6px;
+    overflow: visible;
+    position: relative;
+    z-index: 1;
+    padding-top: 0;
+}
+
+/* Dropdown menus must be above all posts */
+.melon-disc-active .PostStream-item .Dropdown,
+.melon-disc-active .PostStream-item .PostControl,
+.melon-disc-active .PostStream-item .Dropdown-menu {
+    z-index: 10 !important;
+}
+
+/* All posts same style — no OP distinction */
+
+/* ── Floor Number ── */
+.melon-disc-floor-num {
+    font-size: var(--melon-disc-floor-num-size, 12px);
+    font-weight: 700;
+    color: var(--muted-color, #9ca3af);
+    flex-shrink: 0;
+    min-width: 32px;
+    text-align: center;
+    user-select: none;
+    cursor: default;
+}
+
+/* ── Floor Jump (sidebar) ── */
+.melon-disc-floor-jump {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.melon-disc-floor-input {
+    width: 60px;
+    padding: 4px 8px;
+    border: 1px solid var(--control-bg, #e5e7eb);
+    border-radius: 6px;
+    font-size: 13px;
+    text-align: center;
+    background: var(--body-bg, #fff);
+    color: var(--text-color, #1a1a2e);
+    outline: none;
+    transition: border-color 0.2s ease;
+    -moz-appearance: textfield;
+}
+
+.melon-disc-floor-input::-webkit-inner-spin-button,
+.melon-disc-floor-input::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.melon-disc-floor-input:focus {
+    border-color: var(--melon-primary, #4ade80);
+}
+
+.melon-disc-floor-total {
+    font-size: 13px;
+    color: var(--muted-color, #9ca3af);
+    flex-shrink: 0;
+    margin-left: 2px;
+}
+
+.melon-disc-floor-btn {
+    padding: 4px 12px;
+    border: 1px solid var(--control-bg, #e5e7eb);
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    background: var(--control-bg, #f3f4f6);
+    color: var(--text-color, #1a1a2e);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+}
+
+.melon-disc-floor-btn:hover {
+    background: var(--melon-primary, #4ade80);
+    color: #fff;
+    border-color: var(--melon-primary, #4ade80);
+}
+
+/* ── Post Header — simple row: avatar + name + time ── */
+.melon-disc-active .Post-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0;
+    border-bottom: 1px solid var(--control-bg, #f3f4f6);
+    margin-bottom: 0 !important;
+}
+
+/* Avatar inside header */
+.melon-disc-active .Post-header > .Post-avatar,
+.melon-disc-active .Post-header > .melon-disc-in-header.Post-avatar {
+    position: static !important;
+    float: none !important;
+    margin: 0 !important;
+    width: var(--melon-disc-avatar-size, 36px) !important;
+    height: var(--melon-disc-avatar-size, 36px) !important;
+    min-width: var(--melon-disc-avatar-size, 36px) !important;
+    border-radius: 50% !important;
+    border: 2px solid var(--body-bg, #fff);
+    box-shadow: 0 0 0 1px var(--control-bg, #e5e7eb);
+    flex-shrink: 0;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.melon-disc-active .Post-header:hover > .Post-avatar,
+.melon-disc-active .Post-header:hover > .melon-disc-in-header.Post-avatar {
+    transform: scale(1.08);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* Info row */
+.melon-disc-active .Post-header > .melon-disc-header-info,
+.melon-disc-active .Post-header > ul {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    min-width: 0;
+    margin: 0 !important;
+    padding: 0 !important;
+    list-style: none;
+}
+
+.melon-disc-active .Post-header > ul > li {
+    margin: 0 !important;
+    display: inline-flex;
+    align-items: center;
+}
+
+/* Username */
+.melon-disc-active .PostUser {
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.melon-disc-active .PostUser-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-color, #1a1a2e);
+    white-space: nowrap;
+}
+
+.melon-disc-active .PostUser-name:hover {
+    color: var(--melon-primary, #4ade80);
+}
+
+/* Name — flex, takes available space */
+.melon-disc-header-name {
+    flex: 1;
+    min-width: 0;
+}
+
+/* Time — right aligned */
+.melon-disc-header-time {
+    flex-shrink: 0;
+    margin-left: auto;
+}
+
+.melon-disc-active .Post-header .item-time,
+.melon-disc-active .Post-header .Datetime {
+    font-size: 12px;
+    color: var(--muted-color, #9ca3af);
+    white-space: nowrap;
+}
+
+/* ── Post Body ── */
+.melon-disc-active .Post-body {
+    padding: 16px;
+    font-size: 14px;
+    line-height: 1.7;
+    color: var(--text-color, #1a1a2e);
+    word-break: break-word;
+}
+
+.melon-disc-active .Post-body p {
+    margin: 0 0 12px 0;
+}
+
+.melon-disc-active .Post-body p:last-child {
+    margin-bottom: 0;
+}
+
+.melon-disc-active .Post-body img {
+    max-width: 100%;
+    border-radius: 6px;
+}
+
+.melon-disc-active .Post-body pre,
+.melon-disc-active .Post-body code {
+    font-size: 13px;
+    border-radius: 4px;
+}
+
+.melon-disc-active .Post-body blockquote {
+    border-left: 3px solid var(--control-bg, #d1d5db);
+    padding: 8px 12px;
+    margin: 8px 0;
+    color: var(--muted-color, #6b7280);
+    background: var(--control-bg, #f9fafb);
+    border-radius: 0 4px 4px 0;
+}
+
+/* ── Post Actions ── */
+.melon-disc-active .Post-actions {
+    padding: 8px 16px;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    border-top: none;
+}
+
+.melon-disc-active .Post-actions > ul {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    width: 100%;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+.melon-disc-active .Post-actions > ul > li {
+    margin: 0 !important;
+}
+
+.melon-disc-active .Post-actions a,
+.melon-disc-active .Post-actions button {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--muted-color, #6b7280);
+    transition: all 0.15s ease;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+}
+
+.melon-disc-active .Post-actions a:hover,
+.melon-disc-active .Post-actions button:hover {
+    background: var(--control-bg, #f3f4f6);
+    color: var(--text-color, #1a1a2e);
+    border: none;
+}
+
+/* ── Reply Placeholder ── */
+.melon-disc-active .ReplyPlaceholder {
+    border-radius: 6px;
+    border: 1px dashed var(--control-bg, #d1d5db);
+    transition: all 0.2s ease;
+    box-sizing: border-box;
+}
+
+.melon-disc-active .ReplyPlaceholder:hover {
+    border-color: var(--melon-primary, #4ade80);
+    background: var(--control-bg, #f9fafb);
+}
+
+/* ── Composer ── */
+.melon-disc-active .Composer {
+    border-radius: 6px;
+    border: 1px solid var(--control-bg, #e5e7eb);
+    overflow: visible;
+    box-sizing: border-box;
+}
+
+/* ── Post Edited ── */
+.melon-disc-active .PostEdited {
+    font-size: 11px;
+    color: var(--muted-color, #9ca3af);
+}
+
+/* ── Loading Post ── */
+.melon-disc-active .LoadingPost {
+    border-radius: 6px;
+    background: var(--control-bg, #f9fafb);
+    margin-left: 56px;
+}
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+    .melon-disc-active .melon-disc-header {
+        padding: 12px 12px 8px 12px;
+    }
+
+    .melon-disc-title {
+        font-size: 17px;
+    }
+
+    .melon-disc-active .Page-container {
+        flex-direction: column;
+        padding: 12px;
+    }
+
+    .melon-disc-active .melon-disc-sidebar {
+        width: 100%;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+        margin-bottom: 16px;
+        padding-bottom: 16px;
+        border-bottom: 1px solid var(--control-bg, #e5e7eb);
+    }
+
+    .melon-disc-sidebar-section {
+        margin-bottom: 0;
+        padding-bottom: 0;
+        border-bottom: none;
+    }
+
+    .melon-disc-active .PostStream-item {
+        padding-left: 44px !important;
+    }
+
+    .melon-disc-active .PostStream-item .Post-header .Avatar {
+        width: 32px !important;
+        height: 32px !important;
+        min-width: 32px !important;
+    }
+
+    .melon-disc-active .PostStream-item:not(:last-child)::after {
+        left: 15px;
+    }
+
+    .melon-disc-active .ReplyPlaceholder,
+    .melon-disc-active .Composer,
+    .melon-disc-active .LoadingPost {
+        margin-left: 44px;
+        max-width: calc(100% - 44px);
+    }
+}
