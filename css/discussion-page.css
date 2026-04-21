@@ -263,9 +263,10 @@ html.melon-disc-page--active .melon-disc-active .Page-container {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 28px;
+    min-width: 28px;
     height: 28px;
-    border-radius: 50%;
+    padding: 0 6px;
+    border-radius: 14px;
     background: var(--control-bg, #e5e7eb);
     color: var(--muted-color, #6b7280);
     font-size: 11px;
@@ -274,6 +275,8 @@ html.melon-disc-page--active .melon-disc-active .Page-container {
     border: 2px solid var(--body-bg, #fff);
     box-shadow: 0 0 0 1px var(--control-bg, #e5e7eb);
     flex-shrink: 0;
+    box-sizing: border-box;
+    white-space: nowrap;
 }
 
 /* ── Events section ── */
@@ -395,15 +398,18 @@ html.melon-disc-page--active .melon-disc-active .Page-container {
     border-radius: 6px;
     overflow: visible;
     position: relative;
-    z-index: 1;
     padding-top: 0;
 }
 
 /* Dropdown menus must be above all posts */
 .melon-disc-active .PostStream-item .Dropdown,
-.melon-disc-active .PostStream-item .PostControl,
+.melon-disc-active .PostStream-item .PostControl {
+    position: relative;
+    z-index: 20 !important;
+}
 .melon-disc-active .PostStream-item .Dropdown-menu {
-    z-index: 10 !important;
+    position: absolute;
+    z-index: 99999 !important;
 }
 
 /* All posts same style — no OP distinction */

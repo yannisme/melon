@@ -11,7 +11,14 @@ app.initializers.add('yannisme-melon-category-cards', function(app) {
   function melonT(key, params) {
     try {
       if (window.app && window.app.translator) {
-        return app.translator.trans('yannisme-melon.forum.' + key, params || {});
+        var str = app.translator.trans('yannisme-melon.forum.' + key);
+        // Manual parameter replacement to avoid ICU number formatting (e.g. "9, categories")
+        if (params && typeof str === 'string') {
+          Object.keys(params).forEach(function(k) {
+            str = str.replace(new RegExp('\\{' + k + '\\}', 'g'), params[k]);
+          });
+        }
+        return str;
       }
     } catch(e) {}
     return key;
@@ -561,7 +568,7 @@ app.initializers.add('yannisme-melon-category-cards', function(app) {
     html += '  <div class="melon-hero-content">';
     html += '    <h1 class="melon-hero-title">' + esc(welcomeTitle) + '</h1>';
     if (welcomeMessage) {
-      html += '    <p class="melon-hero-subtitle">' + esc(welcomeMessage) + '</p>';
+      html += '    <p class="melon-hero-subtitle">' + welcomeMessage + '</p>';
     }
     html += '    <div class="melon-hero-actions" id="melon-hero-actions">';
     html += '      <a href="/tags" class="melon-btn melon-btn-outline">' + melonT('browse_categories') + '</a>';
@@ -753,6 +760,9 @@ app.initializers.add('yannisme-melon-category-cards', function(app) {
 
     // Remove anti-flash class to show content (no more flicker)
     document.documentElement.classList.remove('melon-anti-flash');
+
+    // Force scroll to top when homepage renders (prevent scroll position restoration)
+    window.scrollTo(0, 0);
   }
 
   // Hide all default Flarum IndexPage elements when melon homepage is active
@@ -1362,12 +1372,25 @@ app.initializers.add('yannisme-melon-category-cards', function(app) {
     }
 
     // Floor jump section — input box to jump to a specific floor
+    // Get total post count from Flarum store (not just visible DOM items)
     var allStreamItems = page.querySelectorAll('.PostStream-item');
-    var visibleItems = [];
+    var visibleCount = 0;
     allStreamItems.forEach(function(item) {
-      if (item.style.display !== 'none' && !item.querySelector('.ReplyPlaceholder, .Composer')) visibleItems.push(item);
+      if (item.style.display !== 'none' && !item.querySelector('.ReplyPlaceholder, .Composer')) visibleCount++;
     });
-    var totalFloors = visibleItems.length;
+    var totalFloors = visibleCount;
+    try {
+      var discId = window.location.pathname.match(/^\/d\/(\d+)/);
+      if (discId && window.app && app.store) {
+        var discModel = app.store.getById('discussions', discId[1]);
+        if (discModel && discModel.data && discModel.data.attributes) {
+          var commentCount = discModel.data.attributes.commentCount || 0;
+          // commentCount = replies only, total posts = replies + 1 (first post)
+          var apiTotal = commentCount + 1;
+          if (apiTotal > totalFloors) totalFloors = apiTotal;
+        }
+      }
+    } catch(e) {}
     if (totalFloors > 0 && document.documentElement.classList.contains('melon-disc-floor-jump--active')) {
       sidebar.appendChild(discMakeSection(melonT('floor_jump'), function(ct) {
         var jumpRow = document.createElement('div');

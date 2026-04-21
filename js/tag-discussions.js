@@ -8,7 +8,13 @@ app.initializers.add('yannisme-melon-tag-discussions', function(app) {
   function melonT(key, params) {
     try {
       if (window.app && window.app.translator) {
-        return app.translator.trans('yannisme-melon.forum.' + key, params || {});
+        var str = app.translator.trans('yannisme-melon.forum.' + key);
+        if (params && typeof str === 'string') {
+          Object.keys(params).forEach(function(k) {
+            str = str.replace(new RegExp('\\{' + k + '\\}', 'g'), params[k]);
+          });
+        }
+        return str;
       }
     } catch(e) {}
     return key;

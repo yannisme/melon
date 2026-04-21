@@ -246,7 +246,7 @@ html.melon-cards--active .IndexPage > :not(.container):not(.melon-homepage) {
 
 .melon-section {
     margin-bottom: 24px;
-    overflow: visible;
+    overflow: hidden;
 }
 
 /* ── Hero Section ── */
@@ -369,8 +369,10 @@ html.melon-cards--active .IndexPage > :not(.container):not(.melon-homepage) {
 /* ── CTA Cards (Quick Access) ── */
 .melon-cards-cta {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, 49.5%);
     gap: 10px;
+    overflow: hidden;
+    padding-top: 5px;
 }
 
 .melon-cta-card {
@@ -384,6 +386,9 @@ html.melon-cards--active .IndexPage > :not(.container):not(.melon-homepage) {
     text-decoration: none !important;
     color: inherit;
     transition: all 0.2s ease;
+    min-width: 0;
+    box-sizing: border-box;
+    overflow: hidden;
 }
 
 .melon-cta-card:hover {
