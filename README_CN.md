@@ -4,6 +4,8 @@
 
 ## Melon - 🍈哈密瓜
 ![GitHub](https://img.shields.io/github/license/yannisme/melon?style=flat-square) ![GitHub last commit](https://img.shields.io/github/last-commit/yannisme/melon?style=flat-square) ![GitHub release (latest by date)](https://img.shields.io/github/v/release/yannisme/melon?style=flat-square) ![Packagist Downloads](https://img.shields.io/packagist/dt/yannisme/melon?style=flat-square)
+
+
 一款清新、模块化的 **Flarum 2.0** 主题，支持自定义样式、暗色模式与多种页面布局选项。
 
 -----
