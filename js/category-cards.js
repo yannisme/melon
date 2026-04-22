@@ -4,28 +4,6 @@ app.initializers.add('yannisme-melon-category-cards', function(app) {
 
   var rendered = false;
 
-
-  // Cache div for esc() to avoid creating one per call
-  var _escDiv = document.createElement('div');
-
-  function melonT(key, params) {
-    try {
-      if (window.app && window.app.translator) {
-        var result = app.translator.trans('yannisme-melon.forum.' + key);
-        // Flarum may return a FormattedString object, convert to plain string
-        var str = (result && typeof result.toString === 'function') ? result.toString() : String(result);
-        // Manual %param% replacement (ICU-safe, avoids number formatting issues)
-        if (params && typeof str === 'string') {
-          Object.keys(params).forEach(function(k) {
-            str = str.split('%' + k + '%').join(String(params[k]));
-          });
-        }
-        return str;
-      }
-    } catch(e) {}
-    return key;
-  }
-
   function init() {
     // Immediately hide default Flarum homepage content to prevent flash
     // This runs before any rendering, so there's no flicker
@@ -74,10 +52,8 @@ app.initializers.add('yannisme-melon-category-cards', function(app) {
           var oldHome = document.getElementById('melon-homepage');
           if (oldHome) oldHome.remove();
           document.documentElement.classList.add('melon-anti-flash');
-          // Retry tryRender multiple times for SPA navigation (DOM may not be ready yet)
-          setTimeout(function() { tryRender(); }, 20);
-          setTimeout(function() { tryRender(); }, 100);
-          setTimeout(function() { tryRender(); }, 300);
+          // Use shared waitForFlarumRender instead of multiple setTimeout
+          melonWaitForFlarumRender(function() { tryRender(); });
         } else {
           // Navigating away from melon-managed pages — ensure anti-flash is removed
           document.documentElement.classList.remove('melon-anti-flash');
@@ -128,9 +104,13 @@ app.initializers.add('yannisme-melon-category-cards', function(app) {
     if (oldTags) oldTags.remove();
     var oldTagDisc = document.getElementById('melon-tag-disc-page');
     if (oldTagDisc) oldTagDisc.remove();
-    // Restore hidden elements (remove melon-hidden class)
+    // Restore hidden elements (remove melon-hidden class AND inline display:none)
     document.querySelectorAll('.melon-hidden').forEach(function(el) {
       el.classList.remove('melon-hidden');
+    });
+    // Also restore any elements that had inline display:none set by older code
+    document.querySelectorAll('[style*="display: none"]').forEach(function(el) {
+      el.style.removeProperty('display');
     });
   }
 
@@ -244,88 +224,36 @@ app.initializers.add('yannisme-melon-category-cards', function(app) {
     fetchHomepageDiscussions(container, tags, allTags);
   }
 
-  // Fallback: REST API
-  function buildFromRESTAPI(container, tags) {
-    var allTags = {};
-    tags.forEach(function(t) { allTags[t.id] = t; });
-
-    // Read max count from settings to request enough data from API
-    var apiLimit = 99;
-    try {
-      var ms = window.__melon_settings || {};
-      if (ms.homepage_disc_count) apiLimit = Math.min(99, Math.max(1, parseInt(ms.homepage_disc_count, 10) || 99));
-    } catch(e) {}
-
-    fetch('/api/discussions?sort=-createdAt&page[size]=' + apiLimit)
-    .then(function(r) { return r.json(); })
-    .then(function(discData) {
-      if (!discData || !discData.data) return;
-      var discussions = discData.data;
-      var users = {};
-      var posts = {};
-      if (discData.included) {
-        discData.included.forEach(function(item) {
-          if (item.type === 'users') users[item.id] = item.attributes;
-          if (item.type === 'tags') allTags[item.id] = item;
-          if (item.type === 'posts') posts[item.id] = item.attributes;
-        });
-      }
-      discussions.forEach(function(disc) {
-        if (disc.relationships.firstPost && disc.relationships.firstPost.data) {
-          var fp = posts[disc.relationships.firstPost.data.id];
-          if (fp) disc._likesCount = fp.likesCount || 0;
-        }
-      });
-      renderHomepage(container, tags, discussions, users, allTags);
-    })
-    .catch(function(err) {
-      console.error('[Melon] API fallback failed:', err);
-      rendered = false;
-      document.documentElement.classList.remove('melon-anti-flash');
-    });
-  }
-
   // Fetch all discussions via API (used when store is stale, e.g. after visiting a tag page)
   function fetchHomepageDiscussions(container, tags, allTags) {
-    fetch('/api/discussions?include=tags,user,firstPost&sort=-createdAt')
+    if (window.app && app.store && app.store.find) {
+      // Use Flarum's store.find to properly authenticate the request
+      app.store.find('discussions', {
+        include: 'tags,user,firstPost,tags.parent',
+        sort: '-createdAt'
+      }).then(function() {
+        renderDiscussionsFromStore(container, tags);
+      }).catch(function(err) {
+        console.error('[Melon] store.find failed:', err);
+        rendered = false;
+        document.documentElement.classList.remove('melon-anti-flash');
+      });
+      return;
+    }
+    // Fallback: raw fetch without auth
+    var apiUrl = '/api/discussions?include=tags,user,firstPost&sort=-createdAt';
+    fetch(apiUrl, { credentials: 'same-origin' })
     .then(function(r) { return r.json(); })
     .then(function(data) {
       if (!data || !data.data) return;
-      var discussions = data.data;
-      var users = {};
-      var posts = {};
-      if (data.included) {
-        data.included.forEach(function(item) {
-          if (item.type === 'users') users[item.id] = item.attributes;
-          if (item.type === 'posts') posts[item.id] = item.attributes;
-        });
+      // Push data into store so models work
+      if (window.app && app.store && app.store.pushPayload) {
+        try { app.store.pushPayload(data); } catch(e) {}
       }
-      discussions.forEach(function(disc) {
-        if (disc.relationships.firstPost && disc.relationships.firstPost.data) {
-          var fp = posts[disc.relationships.firstPost.data.id];
-          if (fp) disc._likesCount = fp.likesCount || 0;
-        }
-        if (disc.relationships.user && disc.relationships.user.data) {
-          var u = users[disc.relationships.user.data.id];
-          if (u) disc._authorName = u.displayName || u.username;
-        }
-      });
-      // Update store with fresh data
-      if (window.app && app.store) {
-        try {
-          discussions.forEach(function(disc) {
-            var existing = app.store.getById('discussions', disc.id);
-            if (existing) existing.pushData(disc);
-          });
-        } catch(e) {}
-      }
-      renderHomepage(container, tags, discussions, users, allTags);
-      hideDefaultIndexPage();
-      document.documentElement.classList.remove('melon-anti-flash');
+      renderDiscussionsFromStore(container, tags);
     })
     .catch(function(e) {
       console.warn('[Melon] API fetch failed, using store data:', e);
-      // Fallback: render whatever is in store
       buildFromStoreEnhanced(container, tags);
     });
   }
@@ -338,7 +266,8 @@ app.initializers.add('yannisme-melon-category-cards', function(app) {
     var lastPostedAt = disc.attributes.lastPostedAt || disc.attributes.createdAt || '';
     var isSticky = disc.attributes.isSticky || false;
     var isLocked = disc.attributes.isLocked || false;
-    var isHidden = disc.attributes.isHidden || false;
+    // Flarum uses hidden_at field (not isHidden) to indicate soft-deleted discussions
+    var isHidden = !!(disc.attributes.hiddenAt || disc.attributes.hidden_at);
     var canSticky = disc.attributes.canSticky || false;
     var canLock = disc.attributes.canLock || false;
     var canRename = disc.attributes.canRename || false;
@@ -356,7 +285,7 @@ app.initializers.add('yannisme-melon-category-cards', function(app) {
     var userId = disc.relationships.user ? disc.relationships.user.data.id : null;
     var user = userId ? users[userId] : null;
     var displayName = disc._authorName || (user ? (user.displayName || user.username) : melonT('anonymous'));
-    var timeStr = formatTime(lastPostedAt);
+    var timeStr = melonFormatTime(lastPostedAt);
     var likesCount = disc._likesCount || 0;
 
     var itemClass = 'melon-disc-item';
@@ -373,12 +302,12 @@ app.initializers.add('yannisme-melon-category-cards', function(app) {
     if (isSticky) h += '<i class="fas fa-thumbtack melon-disc-sticky-icon"></i> ';
     if (isLocked) h += '<i class="fas fa-lock melon-disc-locked-icon"></i> ';
     if (isHidden) h += '<i class="fas fa-trash-alt melon-disc-hidden-icon"></i> ';
-    h += esc(title);
+    h += melonEsc(title);
     h += '    </div>';
 
     // Row 2: Meta info + tags + actions all in one line
     h += '    <div class="melon-disc-meta">';
-    h += '      <span class="melon-disc-author">' + esc(displayName) + '</span>';
+    h += '      <span class="melon-disc-author">' + melonEsc(displayName) + '</span>';
     h += '      <span class="melon-disc-sep">·</span>';
     h += '      <span class="melon-disc-time">' + timeStr + '</span>';
     if (commentCount > 0) {
@@ -397,9 +326,9 @@ app.initializers.add('yannisme-melon-category-cards', function(app) {
         var icon = t.attributes ? (t.attributes.icon || '') : '';
         var tagContent = '';
         if (icon) {
-          tagContent = '<i class="' + esc(icon) + '" style="margin-right:3px;font-size:10px"></i>' + esc(n);
+          tagContent = '<i class="' + melonEsc(icon) + '" style="margin-right:3px;font-size:10px"></i>' + melonEsc(n);
         } else {
-          tagContent = esc(n);
+          tagContent = melonEsc(n);
         }
         h += '      <a href="/t/' + s + '" class="melon-disc-tag" style="background:' + c + '18;color:' + c + '" onclick="event.stopPropagation()">' + tagContent + '</a>';
       });
@@ -427,8 +356,9 @@ app.initializers.add('yannisme-melon-category-cards', function(app) {
       if (canDelete) {
         if (isHidden) {
           h += '          <span onclick="event.stopPropagation();event.preventDefault();melonRestoreDiscussion(' + disc.id + ')"><i class="fas fa-undo"></i> ' + melonT('restore') + '</span>';
+          h += '          <span class="melon-disc-action-danger" onclick="event.stopPropagation();event.preventDefault();melonPermanentDeleteDiscussion(' + disc.id + ')"><i class="fas fa-trash"></i> ' + melonT('permanent_delete') + '</span>';
         } else {
-          h += '          <span class="melon-disc-action-danger" onclick="event.stopPropagation();event.preventDefault();melonDeleteDiscussion(' + disc.id + ')"><i class="fas fa-trash"></i> ' + melonT('delete') + '</span>';
+          h += '          <span class="melon-disc-action-danger" onclick="event.stopPropagation();event.preventDefault();melonSoftDeleteDiscussion(' + disc.id + ')"><i class="fas fa-trash"></i> ' + melonT('delete') + '</span>';
         }
       }
       h += '        </span>';
@@ -493,6 +423,9 @@ app.initializers.add('yannisme-melon-category-cards', function(app) {
   }
 
   function renderHomepage(container, tags, discussions, users, allTags) {
+    // Filter soft-deleted discussions based on user permissions
+    discussions = window.melonFilterHiddenDiscussions(discussions);
+
     var html = '';
     var primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--melon-primary').trim() || '#4ade80';
 
@@ -511,7 +444,7 @@ app.initializers.add('yannisme-melon-category-cards', function(app) {
     // ── Hero Section ──
     html += '<div class="melon-hero">';
     html += '  <div class="melon-hero-content">';
-    html += '    <h1 class="melon-hero-title">' + esc(welcomeTitle) + '</h1>';
+    html += '    <h1 class="melon-hero-title">' + melonEsc(welcomeTitle) + '</h1>';
     if (welcomeMessage) {
       html += '    <p class="melon-hero-subtitle">' + welcomeMessage + '</p>';
     }
@@ -541,22 +474,6 @@ app.initializers.add('yannisme-melon-category-cards', function(app) {
       } catch(e) {
         ctaTags = tags.slice(0, 4);
       }
-      var emojiMap = {
-        'general': '💬', 'discussion': '💬', '讨论': '💬', '综合': '💬',
-        'help': '🤝', 'support': '🤝', '帮助': '🤝', '问答': '🤝',
-        'tutorial': '📚', 'tutorials': '📚', '教程': '📚', '指南': '📚',
-        'showcase': '✨', 'project': '✨', 'projects': '✨', '项目': '✨', '展示': '✨',
-        'news': '📰', 'blog': '📰', '新闻': '📰', '公告': '📰',
-        'feedback': '💭', 'suggestion': '💭', '建议': '💭', '反馈': '💭',
-        'off-topic': '☕', 'chit-chat': '☕', '闲聊': '☕', '水区': '☕',
-        'development': '💻', 'dev': '💻', '开发': '💻', 'coding': '💻',
-        'design': '🎨', '设计': '🎨',
-        'games': '🎮', 'gaming': '🎮', '游戏': '🎮',
-        'javascript': '🟨', 'js': '🟨', 'python': '🐍', 'php': '🐘',
-        'css': '🎨', 'html': '🟧', 'react': '⚛️', 'vue': '💚',
-        'node': '🟩', 'nodejs': '🟩', 'linux': '🐧', 'android': '🤖',
-      };
-
       html += '<div class="melon-section"><div class="melon-cards-cta">';
       ctaTags.forEach(function(tag) {
         var name = tag.attributes.name || '';
@@ -570,17 +487,17 @@ app.initializers.add('yannisme-melon-category-cards', function(app) {
         var iconHtml;
         if (tagIcon) {
           // Flarum icon is a Font Awesome class like "fa-regular fa-message" or "fas fa-code"
-          iconHtml = '<i class="' + esc(tagIcon) + '" style="font-size:22px;color:' + (tagColor || 'inherit') + '"></i>';
+          iconHtml = '<i class="' + melonEsc(tagIcon) + '" style="font-size:22px;color:' + (tagColor || 'inherit') + '"></i>';
         } else {
-          var emoji = emojiMap[slug.toLowerCase()] || emojiMap[name.toLowerCase()] || '🏷️';
+          var emoji = window.melonEmojiMap[slug.toLowerCase()] || window.melonEmojiMap[name.toLowerCase()] || '🏷️';
           iconHtml = emoji;
         }
 
         html += '<a href="/t/' + slug + '" class="melon-cta-card">';
         html += '  <div class="melon-cta-icon">' + iconHtml + '</div>';
         html += '  <div class="melon-cta-info">';
-        html += '    <b class="melon-cta-title">' + esc(name) + '</b>';
-        html += '    <span class="melon-cta-desc">' + esc(desc || melonT('topics_count', {count: count})) + '</span>';
+        html += '    <b class="melon-cta-title">' + melonEsc(name) + '</b>';
+        html += '    <span class="melon-cta-desc">' + melonEsc(desc || melonT('topics_count', {count: count})) + '</span>';
         html += '  </div>';
         html += '  <span class="melon-cta-arrow"><i class="fas fa-chevron-right"></i></span>';
         html += '</a>';
@@ -609,8 +526,8 @@ app.initializers.add('yannisme-melon-category-cards', function(app) {
         html += '<a href="/t/' + slug + '" class="melon-card">';
         html += '  <div class="melon-card-icon" style="background:' + color + '"><i class="fas fa-comments"></i></div>';
         html += '  <div class="melon-card-body">';
-        html += '    <h3 class="melon-card-name">' + esc(name) + '</h3>';
-        html += '    <p class="melon-card-desc">' + esc(desc || melonT('no_description')) + '</p>';
+        html += '    <h3 class="melon-card-name">' + melonEsc(name) + '</h3>';
+        html += '    <p class="melon-card-desc">' + melonEsc(desc || melonT('no_description')) + '</p>';
         html += '  </div>';
         html += '  <div class="melon-card-stat"><strong>' + count + '</strong><span>' + melonT('topic') + '</span></div>';
         html += '</a>';
@@ -647,7 +564,7 @@ app.initializers.add('yannisme-melon-category-cards', function(app) {
       var customUrl = ms2.homepage_custom_link_url || '';
       var customText = ms2.homepage_custom_link_text || '';
       if (customUrl && customText) {
-        html += '    <a href="' + esc(customUrl) + '" class="melon-section-more">' + esc(customText) + ' <i class="fas fa-arrow-right"></i></a>';
+        html += '    <a href="' + melonEsc(customUrl) + '" class="melon-section-more">' + melonEsc(customText) + ' <i class="fas fa-arrow-right"></i></a>';
       }
       html += '  </div>';
       html += '  <div class="melon-disc-list" id="melon-disc-list">';
@@ -783,21 +700,6 @@ app.initializers.add('yannisme-melon-category-cards', function(app) {
     }
   }
 
-  function formatTime(dateStr) {
-    if (!dateStr) return '';
-    var diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
-    if (diff < 60) return melonT('time_just_now');
-    if (diff < 3600) return melonT('time_minutes_ago', {count: Math.floor(diff / 60)});
-    if (diff < 86400) return melonT('time_hours_ago', {count: Math.floor(diff / 3600)});
-    if (diff < 2592000) return melonT('time_days_ago', {count: Math.floor(diff / 86400)});
-    return new Date(dateStr).toLocaleDateString('zh-CN');
-  }
-
-  function esc(str) {
-    _escDiv.textContent = str;
-    return _escDiv.innerHTML;
-  }
-
   // ── Global action functions (called from onclick) ──
 
   function getCsrfToken() {
@@ -811,6 +713,19 @@ app.initializers.add('yannisme-melon-category-cards', function(app) {
   }
 
   function apiRequest(method, url, body) {
+    // Use Flarum's app.request for proper authentication
+    if (window.app && app.request) {
+      return app.request({
+        method: method,
+        url: url,
+        body: body
+      }).then(function(result) {
+        // app.request returns the payload
+        if (result && result.payload) return result.payload;
+        return result;
+      });
+    }
+    // Fallback: raw fetch
     var headers = {
       'Accept': 'application/json',
       'Content-Type': 'application/json; charset=utf-8',
@@ -828,6 +743,7 @@ app.initializers.add('yannisme-melon-category-cards', function(app) {
   }
 
   // Toggle actions menu - move to body to avoid any overflow clipping
+  var _activeMenuBtn = null; // Track the button that opened the menu
   window.melonToggleActionsMenu = function(btnEl) {
     // Close any other open menus first
     document.querySelectorAll('.melon-disc-actions-menu.melon-disc-actions-open').forEach(function(m) {
@@ -840,6 +756,7 @@ app.initializers.add('yannisme-melon-category-cards', function(app) {
     var isOpen = menu.classList.contains('melon-disc-actions-open');
     if (isOpen) {
       melonCloseMenu(menu);
+      _activeMenuBtn = null;
       return;
     }
 
@@ -849,16 +766,36 @@ app.initializers.add('yannisme-melon-category-cards', function(app) {
     document.body.appendChild(menu);
 
     // Calculate position
+    _activeMenuBtn = btnEl;
+    _positionMenu(menu, btnEl);
+    menu.classList.add('melon-disc-actions-open');
+  };
+
+  function _positionMenu(menu, btnEl) {
     var rect = btnEl.getBoundingClientRect();
     menu.style.position = 'fixed';
     menu.style.top = (rect.bottom + 4) + 'px';
     menu.style.left = Math.max(8, rect.right - 140) + 'px';
     menu.style.right = 'auto';
-    menu.classList.add('melon-disc-actions-open');
-  };
+  }
+
+  // Update menu position on scroll
+  var _scrollTimer = null;
+  window.addEventListener('scroll', function() {
+    if (_activeMenuBtn) {
+      var openMenu = document.querySelector('.melon-disc-actions-menu.melon-disc-actions-open');
+      if (openMenu) {
+        if (_scrollTimer) clearTimeout(_scrollTimer);
+        _scrollTimer = setTimeout(function() {
+          _positionMenu(openMenu, _activeMenuBtn);
+        }, 10);
+      }
+    }
+  }, true); // Use capture to catch all scroll events
 
   function melonCloseMenu(menu) {
     menu.classList.remove('melon-disc-actions-open');
+    _activeMenuBtn = null;
     // Move back to original parent if it was moved to body
     if (menu._originalParent) {
       if (menu._originalNextSibling) {
@@ -884,7 +821,7 @@ app.initializers.add('yannisme-melon-category-cards', function(app) {
     }
   });
 
-  // Re-render melon list after an operation
+  // Re-render melon list after an operation (local refresh, no API call)
   function refreshAfterOperation() {
     // Close and remove any menus that were moved to body
     document.querySelectorAll('.melon-disc-actions-menu').forEach(function(m) {
@@ -892,8 +829,7 @@ app.initializers.add('yannisme-melon-category-cards', function(app) {
         m.remove();
       }
     });
-    // Simply re-trigger the full build pipeline
-    // buildFromStoreEnhanced reads from Flarum store which we already updated
+    // Re-render from store directly (no API fetch needed since we already updated store)
     var old = document.getElementById('melon-homepage');
     if (old) old.remove();
     rendered = false;
@@ -901,14 +837,68 @@ app.initializers.add('yannisme-melon-category-cards', function(app) {
 
     var container = document.querySelector('.App-content') || document.querySelector('.container');
     if (container) {
-      // Get tags from store
       var tags = getStoreTags();
       if (tags.length > 0) {
-        buildFromStoreEnhanced(container, tags);
+        // Render directly from store (skip API fetch)
+        renderDiscussionsFromStore(container, tags);
       } else {
         buildHomepage(container);
       }
     }
+  }
+
+  // Render homepage from store data without API call
+  function renderDiscussionsFromStore(container, tags) {
+    if (!window.app || !app.store) {
+      buildFromStoreEnhanced(container, tags);
+      return;
+    }
+    var allTags = {};
+    tags.forEach(function(t) { allTags[t.id] = t; });
+    var models = app.store.all('discussions');
+    if (!models || models.length === 0) {
+      buildFromStoreEnhanced(container, tags);
+      return;
+    }
+    var discussions = [];
+    var users = {};
+    var posts = {};
+    models.forEach(function(model) {
+      var d = model.data || model;
+      if (!d || !d.attributes) return;
+      d.attributes.hiddenAt = window.melonIsDiscussionHidden(d) ? (d.attributes.hiddenAt || new Date().toISOString()) : null;
+      discussions.push(d);
+      if (d.relationships && d.relationships.user && d.relationships.user.data) {
+        var uid = d.relationships.user.data.id;
+        var uModel = app.store.getById('users', uid);
+        if (uModel && uModel.data && uModel.data.attributes) {
+          users[uid] = uModel.data.attributes;
+        }
+      }
+      if (d.relationships && d.relationships.firstPost && d.relationships.firstPost.data) {
+        var fpid = d.relationships.firstPost.data.id;
+        var fpModel = app.store.getById('posts', fpid);
+        if (fpModel && fpModel.data && fpModel.data.attributes) {
+          posts[fpid] = fpModel.data.attributes;
+        }
+      }
+    });
+    discussions.forEach(function(disc) {
+      if (disc.relationships.firstPost && disc.relationships.firstPost.data) {
+        var fp = posts[disc.relationships.firstPost.data.id];
+        if (fp) disc._likesCount = fp.likesCount || 0;
+      }
+      if (disc.relationships.user && disc.relationships.user.data) {
+        var u = users[disc.relationships.user.data.id];
+        if (u) disc._authorName = u.displayName || u.username;
+      }
+    });
+    discussions.sort(function(a, b) {
+      return new Date(b.attributes.createdAt || 0) - new Date(a.attributes.createdAt || 0);
+    });
+    renderHomepage(container, tags, discussions, users, allTags);
+    hideDefaultIndexPage();
+    document.documentElement.classList.remove('melon-anti-flash');
   }
   // Expose globally so tag-discussions.js can override it
   window.melonRefreshAfterOperation = refreshAfterOperation;
@@ -1073,18 +1063,37 @@ app.initializers.add('yannisme-melon-category-cards', function(app) {
     });
   };
 
-  window.melonDeleteDiscussion = function(discId) {
+  // Soft delete (hide) a discussion and its first post
+  window.melonSoftDeleteDiscussion = function(discId) {
     if (!confirm(melonT('delete_confirm'))) return;
-    apiRequest('PATCH', '/api/discussions/' + discId, {
-      data: { type: 'discussions', id: String(discId), attributes: { isHidden: true } }
-    }).then(function() {
-      if (window.app && app.store) {
-        var model = app.store.getById('discussions', discId);
-        if (model && model.data) {
-          model.data.attributes.isHidden = true;
-          model.data.attributes.hiddenAt = new Date().toISOString();
+    if (window.app && app.store) {
+      var model = app.store.getById('discussions', String(discId));
+      if (model && typeof model.save === 'function') {
+        var promises = [model.save({ isHidden: true })];
+        // Also hide the first post so Flarum shows native hidden state in discussion page
+        var discData = model.data || model;
+        if (discData.relationships && discData.relationships.firstPost && discData.relationships.firstPost.data) {
+          var fpModel = app.store.getById('posts', String(discData.relationships.firstPost.data.id));
+          if (fpModel && typeof fpModel.save === 'function') {
+            var fpHidden = false;
+            if (typeof fpModel.isHidden === 'function') fpHidden = fpModel.isHidden();
+            else {
+              var fpD = fpModel.data || fpModel;
+              fpHidden = !!(fpD.attributes && (fpD.attributes.hiddenAt || fpD.attributes.hidden_at));
+            }
+            if (!fpHidden) promises.push(fpModel.save({ isHidden: true }));
+          }
         }
+        Promise.all(promises).then(function() {
+          window.melonRefreshAfterOperation();
+        }).catch(function(e) {
+          console.error('[Melon] Soft delete failed:', e);
+          alert(melonT('delete_failed'));
+        });
+        return;
       }
+    }
+    apiRequest('DELETE', '/api/discussions/' + discId).then(function() {
       window.melonRefreshAfterOperation();
     }).catch(function(e) {
       console.error('[Melon] Soft delete failed:', e);
@@ -1092,21 +1101,57 @@ app.initializers.add('yannisme-melon-category-cards', function(app) {
     });
   };
 
+  // Restore a soft-deleted discussion (and its first post)
   window.melonRestoreDiscussion = function(discId) {
-    apiRequest('PATCH', '/api/discussions/' + discId, {
-      data: { type: 'discussions', id: String(discId), attributes: { isHidden: false } }
-    }).then(function() {
-      if (window.app && app.store) {
-        var model = app.store.getById('discussions', discId);
-        if (model && model.data) {
-          model.data.attributes.isHidden = false;
-          model.data.attributes.hiddenAt = null;
+    if (window.app && app.store) {
+      var model = app.store.getById('discussions', String(discId));
+      if (model && typeof model.save === 'function') {
+        var promises = [model.save({ isHidden: false })];
+        // Also restore the first post if it was hidden
+        var discData = model.data || model;
+        if (discData.relationships && discData.relationships.firstPost && discData.relationships.firstPost.data) {
+          var fpModel = app.store.getById('posts', String(discData.relationships.firstPost.data.id));
+          if (fpModel && typeof fpModel.save === 'function') {
+            var fpHidden = false;
+            if (typeof fpModel.isHidden === 'function') fpHidden = fpModel.isHidden();
+            else {
+              var fpD = fpModel.data || fpModel;
+              fpHidden = !!(fpD.attributes && (fpD.attributes.hiddenAt || fpD.attributes.hidden_at));
+            }
+            if (fpHidden) promises.push(fpModel.save({ isHidden: false }));
+          }
         }
+        Promise.all(promises).then(function() {
+          window.melonRefreshAfterOperation();
+        }).catch(function(e) {
+          console.error('[Melon] Restore failed:', e);
+          alert(melonT('restore_failed'));
+        });
+        return;
       }
+    }
+    apiRequest('PATCH', '/api/discussions/' + discId, {
+      data: { type: 'discussions', id: String(discId), attributes: { hiddenAt: null } }
+    }).then(function() {
       window.melonRefreshAfterOperation();
     }).catch(function(e) {
       console.error('[Melon] Restore failed:', e);
       alert(melonT('restore_failed'));
+    });
+  };
+
+  // Permanently delete a discussion (hard delete)
+  window.melonPermanentDeleteDiscussion = function(discId) {
+    if (!confirm(melonT('permanent_delete_confirm'))) return;
+    apiRequest('DELETE', '/api/discussions/' + discId).then(function() {
+      // Remove from store completely
+      if (window.app && app.store) {
+        try { app.store.remove('discussions', String(discId)); } catch(e) {}
+      }
+      window.melonRefreshAfterOperation();
+    }).catch(function(e) {
+      console.error('[Melon] Permanent delete failed:', e);
+      alert(melonT('delete_failed'));
     });
   };
 
@@ -1153,7 +1198,15 @@ app.initializers.add('yannisme-melon-category-cards', function(app) {
       }
     });
     observer.observe(document.body, { childList: true, subtree: true });
-    setTimeout(function() { observer.disconnect(); renderDiscussionPage(); }, 1500);
+    // Retry if first attempt times out (slow network)
+    setTimeout(function() {
+      observer.disconnect();
+      renderDiscussionPage();
+      // If still not rendered, retry once more after 1s
+      if (!_discRendered) {
+        setTimeout(function() { renderDiscussionPage(); }, 1000);
+      }
+    }, 1500);
   }
 
   function renderDiscussionPage() {
@@ -1169,7 +1222,144 @@ app.initializers.add('yannisme-melon-category-cards', function(app) {
     discRestructureHero(page);
     discCreateSidebar(page);
     discStylePosts(page);
+    discApplyHiddenState(page);
     discObserveNewPosts(page);
+    discWatchFirstPostHidden(page);
+  }
+
+  // Watch the first post's hidden state and sync it to the discussion model
+  // This ensures that when Flarum natively hides/restores the first post,
+  // the discussion model is also updated, keeping homepage and list in sync
+  function discWatchFirstPostHidden(page) {
+    try {
+      if (!window.app || !app.store) return;
+      var discId = _getDiscId(window.location.pathname);
+      if (!discId) return;
+      var discModel = app.store.getById('discussions', String(discId));
+      if (!discModel) return;
+
+      // Find the first post model
+      var discData = discModel.data || discModel;
+      var firstPostRel = discData.relationships && discData.relationships.firstPost;
+      if (!firstPostRel || !firstPostRel.data) return;
+      var postModel = app.store.getById('posts', String(firstPostRel.data.id));
+      if (!postModel) return;
+
+      // Helper to get post hidden state
+      function getPostHidden(post) {
+        return window.melonIsDiscussionHidden({ id: discId, relationships: { firstPost: { data: { id: (post.data || post).id } } } });
+      }
+
+      // Poll the first post's hidden state every 300ms
+      var lastHidden = getPostHidden(postModel);
+      var _watchInterval = setInterval(function() {
+        var nowHidden = getPostHidden(postModel);
+        if (nowHidden !== lastHidden) {
+          lastHidden = nowHidden;
+          // Sync: update discussion model's hiddenAt to match first post
+          var discAttrs = discModel.data && discModel.data.attributes;
+          if (discAttrs) {
+            discAttrs.hiddenAt = nowHidden ? (discAttrs.hiddenAt || new Date().toISOString()) : null;
+          }
+          // Update the visual state on the discussion page
+          if (nowHidden) {
+            page.classList.add('melon-disc-page-hidden');
+            if (!page.querySelector('.melon-disc-hidden-banner')) {
+              discApplyHiddenState(page);
+            }
+          } else {
+            page.classList.remove('melon-disc-page-hidden');
+            var b = page.querySelector('.melon-disc-hidden-banner');
+            if (b) b.remove();
+          }
+        }
+      }, 300);
+
+      // Clean up when navigating away
+      var _cleanup = function() {
+        clearInterval(_watchInterval);
+        window.removeEventListener('locationchange', _cleanup);
+      };
+      window.addEventListener('locationchange', _cleanup);
+    } catch(e) {
+      console.warn('[Melon] discWatchFirstPostHidden error:', e);
+    }
+  }
+
+  // Apply soft-delete visual state to discussion page if the discussion or first post is hidden
+  function discApplyHiddenState(page) {
+    try {
+      if (!window.app || !app.store) return;
+      var discId = _getDiscId(window.location.pathname);
+      if (!discId) return;
+      var model = app.store.getById('discussions', String(discId));
+      if (!model) return;
+
+      // Check both discussion and first post hidden state
+      var isHidden = window.melonIsDiscussionHidden({ id: discId, relationships: (model.data || model).relationships, attributes: (model.data || model).attributes });
+      if (!isHidden) return;
+
+      // Add soft-deleted class to the page
+      page.classList.add('melon-disc-page-hidden');
+
+      // Add soft-deleted banner before the first post
+      var firstItem = page.querySelector('.PostStream-item');
+      if (firstItem && !page.querySelector('.melon-disc-hidden-banner')) {
+        var banner = document.createElement('div');
+        banner.className = 'melon-disc-hidden-banner';
+        var bannerText = '';
+        try {
+          bannerText = app.session.user.attribute('isAdmin')
+            ? '🗑️ ' + (melonT ? melonT('discussion_soft_deleted') : 'This discussion has been soft-deleted')
+            : '🗑️ ' + (melonT ? melonT('discussion_soft_deleted_author') : 'This discussion has been soft-deleted');
+        } catch(e) {
+          bannerText = '🗑️ This discussion has been soft-deleted';
+        }
+        banner.innerHTML = '<span>' + bannerText + '</span>';
+        // Add restore button for admin or author
+        var currentUserId = null;
+        try { currentUserId = String(app.session.user.id() || app.session.user.id); } catch(e) {}
+        var authorId = null;
+        var discData = model.data || model;
+        if (discData.relationships && discData.relationships.user && discData.relationships.user.data) {
+          authorId = String(discData.relationships.user.data.id);
+        }
+        var isAdmin = false;
+        try { isAdmin = app.session.user.attribute('isAdmin'); } catch(e) {}
+
+        if (isAdmin || authorId === currentUserId) {
+          var restoreBtn = document.createElement('button');
+          restoreBtn.className = 'melon-disc-hidden-restore-btn';
+          restoreBtn.textContent = melonT ? melonT('restore') : 'Restore';
+          restoreBtn.onclick = function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (model.save && typeof model.save === 'function') {
+              var promises = [model.save({ isHidden: false })];
+              // Also restore the first post
+              var fpRel = discData.relationships && discData.relationships.firstPost;
+              if (fpRel && fpRel.data) {
+                var fpM = app.store.getById('posts', String(fpRel.data.id));
+                if (fpM && typeof fpM.save === 'function') {
+                  promises.push(fpM.save({ isHidden: false }));
+                }
+              }
+              Promise.all(promises).then(function() {
+                page.classList.remove('melon-disc-page-hidden');
+                var b = page.querySelector('.melon-disc-hidden-banner');
+                if (b) b.remove();
+              }).catch(function(err) {
+                console.error('[Melon] Restore failed:', err);
+              });
+            }
+          };
+          banner.appendChild(restoreBtn);
+        }
+        firstItem.parentNode.insertBefore(banner, firstItem);
+      }
+    } catch(e) {
+      console.warn('[Melon] discApplyHiddenState error:', e);
+    }
   }
 
   // Collect EventPosts, hide from main stream, move to sidebar with controls
@@ -1775,18 +1965,18 @@ app.initializers.add('yannisme-melon-category-cards', function(app) {
           document.documentElement.classList.contains('melon-tag-disc--active') ||
           document.documentElement.classList.contains('melon-disc-page--active');
         if (!hasActiveModule) {
-          document.documentElement.classList.remove('melon-anti-flash');
+          melonRemoveAntiFlash();
         }
       } else {
-        document.documentElement.classList.remove('melon-anti-flash');
+        melonRemoveAntiFlash();
       }
     }
-  }, 300);
+  }, 200);
 
-  // Second safety net: force remove anti-flash after 2s no matter what
+  // Second safety net: force remove anti-flash after 800ms no matter what
   setTimeout(function() {
-    document.documentElement.classList.remove('melon-anti-flash');
-  }, 2000);
+    melonRemoveAntiFlash();
+  }, 800);
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);

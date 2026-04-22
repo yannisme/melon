@@ -3,23 +3,6 @@ app.initializers.add('yannisme-melon-tags', function(app) {
   'use strict';
 
   var tagsRendered = false;
-  var _escDiv = document.createElement('div');
-
-  function melonT(key, params) {
-    try {
-      if (window.app && window.app.translator) {
-        var result = app.translator.trans('yannisme-melon.forum.' + key);
-        var str = (result && typeof result.toString === 'function') ? result.toString() : String(result);
-        if (params && typeof str === 'string') {
-          Object.keys(params).forEach(function(k) {
-            str = str.split('%' + k + '%').join(String(params[k]));
-          });
-        }
-        return str;
-      }
-    } catch(e) {}
-    return key;
-  }
 
   function isDefaultRouteTags() {
     try {
@@ -63,7 +46,8 @@ app.initializers.add('yannisme-melon-tags', function(app) {
       if (isTagsPage(pathname) && document.documentElement.classList.contains('melon-tags-cloud--active')) {
         cleanup();
         document.documentElement.classList.add('melon-anti-flash');
-        setTimeout(function() { tryRenderTags(); }, 50);
+        // Wait for Flarum SPA to finish rendering before we render
+        melonWaitForFlarumRender(function() { tryRenderTags(); });
       } else if (tagsRendered || document.getElementById('melon-tags-page')) {
         // Leaving tags page — cleanup residual content
         cleanup();
@@ -91,9 +75,12 @@ app.initializers.add('yannisme-melon-tags', function(app) {
     document.documentElement.classList.remove('melon-anti-flash');
     var old = document.getElementById('melon-tags-page');
     if (old) old.remove();
-    // Restore hidden elements (remove melon-hidden class)
+    // Restore hidden elements (remove melon-hidden class AND inline display:none)
     document.querySelectorAll('.melon-hidden').forEach(function(el) {
       el.classList.remove('melon-hidden');
+    });
+    document.querySelectorAll('[style*="display: none"]').forEach(function(el) {
+      el.style.removeProperty('display');
     });
   }
 
@@ -191,7 +178,7 @@ app.initializers.add('yannisme-melon-tags', function(app) {
       if (!data || !data.data) { tagsRendered = false; return; }
       fetchDiscussionsAndRender(container, data.data);
     })
-    .catch(function() { tagsRendered = false; });
+    .catch(function() { tagsRendered = false; melonRemoveAntiFlash(); });
   }
 
   function fetchDiscussionsAndRender(container, allTags) {
@@ -228,17 +215,6 @@ app.initializers.add('yannisme-melon-tags', function(app) {
     var primaryTags = getPrimaryTags(allTags);
     var secondaryTags = getSecondaryTags(allTags);
 
-    var emojiMap = {
-      'general': '💬', 'discussion': '💬', '讨论': '💬',
-      'help': '🤝', 'support': '🤝', '帮助': '🤝',
-      'tutorial': '📚', 'tutorials': '📚', '教程': '📚',
-      'news': '📰', 'blog': '📰', '新闻': '📰', '公告': '📰',
-      'off-topic': '☕', 'chit-chat': '☕', '闲聊': '☕',
-      'development': '💻', 'dev': '💻', '开发': '💻',
-      'design': '🎨', '设计': '🎨',
-      'games': '🎮', 'gaming': '🎮', '游戏': '🎮',
-    };
-
     var html = '';
 
     // ── Page Header ──
@@ -266,9 +242,9 @@ app.initializers.add('yannisme-melon-tags', function(app) {
         // Icon
         var iconHtml;
         if (tagIcon) {
-          iconHtml = '<i class="' + esc(tagIcon) + '"></i>';
+          iconHtml = '<i class="' + melonEsc(tagIcon) + '"></i>';
         } else {
-          var emoji = emojiMap[slug.toLowerCase()] || emojiMap[name.toLowerCase()] || '🏷️';
+          var emoji = window.melonEmojiMap[slug.toLowerCase()] || window.melonEmojiMap[name.toLowerCase()] || '🏷️';
           iconHtml = emoji;
         }
 
@@ -277,14 +253,14 @@ app.initializers.add('yannisme-melon-tags', function(app) {
         html += '  <a href="/t/' + slug + '" class="melon-tag-card-top">';
         html += '    <div class="melon-tag-card-icon" style="background:' + color + '22; color:' + color + '">' + iconHtml + '</div>';
         html += '    <div class="melon-tag-card-meta">';
-        html += '      <h3 class="melon-tag-card-name" style="color:' + color + '">' + esc(name) + '</h3>';
+        html += '      <h3 class="melon-tag-card-name" style="color:' + color + '">' + melonEsc(name) + '</h3>';
         html += '      <span class="melon-tag-card-count">' + melonT('topics_count', {count: count}) + '</span>';
         html += '    </div>';
         html += '  </a>';
 
         // Description
         if (desc) {
-          html += '  <p class="melon-tag-card-desc">' + esc(desc) + '</p>';
+          html += '  <p class="melon-tag-card-desc">' + melonEsc(desc) + '</p>';
         }
 
         // Child tags
@@ -295,12 +271,12 @@ app.initializers.add('yannisme-melon-tags', function(app) {
             var cSlug = child.attributes.slug || '';
             var cColor = child.attributes.color || color;
             var cIcon = child.attributes.icon || '';
-            var cEmoji = emojiMap[cSlug.toLowerCase()] || emojiMap[cName.toLowerCase()] || '🏷️';
+            var cEmoji = window.melonEmojiMap[cSlug.toLowerCase()] || window.melonEmojiMap[cName.toLowerCase()] || '🏷️';
             var cCount = child.attributes.discussionCount || 0;
             if (cIcon) {
-              html += '<a href="/t/' + cSlug + '" class="melon-tag-child"><i class="' + esc(cIcon) + '"></i> ' + esc(cName) + ' <span class="melon-tag-child-count">' + cCount + '</span></a>';
+              html += '<a href="/t/' + cSlug + '" class="melon-tag-child"><i class="' + melonEsc(cIcon) + '"></i> ' + melonEsc(cName) + ' <span class="melon-tag-child-count">' + cCount + '</span></a>';
             } else {
-              html += '<a href="/t/' + cSlug + '" class="melon-tag-child">' + cEmoji + ' ' + esc(cName) + ' <span class="melon-tag-child-count">' + cCount + '</span></a>';
+              html += '<a href="/t/' + cSlug + '" class="melon-tag-child">' + cEmoji + ' ' + melonEsc(cName) + ' <span class="melon-tag-child-count">' + cCount + '</span></a>';
             }
           });
           html += '  </div>';
@@ -312,8 +288,8 @@ app.initializers.add('yannisme-melon-tags', function(app) {
           html += '    <div class="melon-tag-card-discs-label">' + melonT('latest_discussions') + '</div>';
           discs.forEach(function(disc) {
             html += '<a href="/d/' + disc.id + '-' + disc.slug + '" class="melon-tag-disc-item">';
-            html += '  <span class="melon-tag-disc-title">' + esc(disc.title) + '</span>';
-            html += '  <span class="melon-tag-disc-meta">' + esc(disc.author) + ' · ' + formatTime(disc.createdAt) + '</span>';
+            html += '  <span class="melon-tag-disc-title">' + melonEsc(disc.title) + '</span>';
+            html += '  <span class="melon-tag-disc-meta">' + melonEsc(disc.author) + ' · ' + melonFormatTime(disc.createdAt) + '</span>';
             html += '</a>';
           });
           html += '  </div>';
@@ -340,16 +316,16 @@ app.initializers.add('yannisme-melon-tags', function(app) {
 
         var iconHtml;
         if (tagIcon) {
-          iconHtml = '<i class="' + esc(tagIcon) + '"></i>';
+          iconHtml = '<i class="' + melonEsc(tagIcon) + '"></i>';
         } else {
-          var emoji = emojiMap[slug.toLowerCase()] || emojiMap[name.toLowerCase()] || '🏷️';
+          var emoji = window.melonEmojiMap[slug.toLowerCase()] || window.melonEmojiMap[name.toLowerCase()] || '🏷️';
           iconHtml = emoji;
         }
 
         html += '<a href="/t/' + slug + '" class="melon-secondary-card">';
         html += '  <div class="melon-secondary-card-icon" style="background:' + color + '22; color:' + color + '">' + iconHtml + '</div>';
         html += '  <div class="melon-secondary-card-meta">';
-        html += '    <span class="melon-secondary-card-name">' + esc(name) + '</span>';
+        html += '    <span class="melon-secondary-card-name">' + melonEsc(name) + '</span>';
         html += '    <span class="melon-secondary-card-count">' + count + '</span>';
         html += '  </div>';
         html += '</a>';
@@ -409,27 +385,12 @@ app.initializers.add('yannisme-melon-tags', function(app) {
       if (child.id === 'melon-tags-page') return;
       if (child.querySelector && child.querySelector('#melon-tags-page')) {
         Array.from(child.children).forEach(function(gc) {
-          if (gc.id !== 'melon-tags-page') gc.style.display = 'none';
+          if (gc.id !== 'melon-tags-page') gc.classList.add('melon-hidden');
         });
       } else {
-        child.style.display = 'none';
+        child.classList.add('melon-hidden');
       }
     });
-  }
-
-  function formatTime(dateStr) {
-    if (!dateStr) return '';
-    var diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
-    if (diff < 60) return melonT('time_just_now');
-    if (diff < 3600) return melonT('time_minutes_ago', {count: Math.floor(diff / 60)});
-    if (diff < 86400) return melonT('time_hours_ago', {count: Math.floor(diff / 3600)});
-    if (diff < 2592000) return melonT('time_days_ago', {count: Math.floor(diff / 86400)});
-    return new Date(dateStr).toLocaleDateString('zh-CN');
-  }
-
-  function esc(str) {
-    _escDiv.textContent = str;
-    return _escDiv.innerHTML;
   }
 
   if (document.readyState === 'loading') {

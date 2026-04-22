@@ -6,6 +6,30 @@ html.melon-anti-flash .App-content,
 html.melon-anti-flash .App-content * {
     visibility: hidden !important;
 }
+/* Also hide body background to prevent dark-mode flash */
+html.melon-anti-flash body,
+html.melon-anti-flash .App {
+    opacity: 0 !important;
+}
+/* Smooth reveal when anti-flash is removed */
+html:not(.melon-anti-flash) body,
+html:not(.melon-anti-flash) .App {
+    transition: opacity 0.15s ease;
+}
+
+/* Disable all transitions during anti-flash to prevent dark-mode flash */
+html.melon-anti-flash * {
+    transition: none !important;
+    animation: none !important;
+}
+
+/* Respect user's reduced-motion preference */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        transition-duration: 0.01ms !important;
+        animation-duration: 0.01ms !important;
+    }
+}
 
 /* Hide elements marked by melon JS (replaces inline display:none) */
 .melon-hidden {
@@ -369,10 +393,10 @@ html.melon-cards--active .IndexPage > :not(.container):not(.melon-homepage) {
 /* ── CTA Cards (Quick Access) ── */
 .melon-cards-cta {
     display: grid;
-    grid-template-columns: repeat(2, 49.5%);
+    grid-template-columns: repeat(2, 50%);
     gap: 10px;
     overflow: hidden;
-    padding-top: 5px;
+    padding: 10px;
 }
 
 .melon-cta-card {
@@ -663,8 +687,8 @@ html.melon-cards--active .IndexPage > :not(.container):not(.melon-homepage) {
 
 /* Row 1: Title with inline status icons */
 .melon-disc-title {
-    font-size: var(--melon-disc-title-size, 15px) !important;
-    font-weight: var(--melon-disc-title-weight, 600) !important;
+    font-size: var(--melon-disc-title-size, 15px);
+    font-weight: var(--melon-disc-title-weight, 600);
     color: var(--text-color, #1a1a2e) !important;
     margin: 0 !important;
     padding: 0 !important;
@@ -698,7 +722,7 @@ html.melon-cards--active .IndexPage > :not(.container):not(.melon-homepage) {
     display: flex !important;
     align-items: center !important;
     gap: var(--melon-disc-meta-gap, 6px) !important;
-    margin-top: 2px !important;
+    margin-top: -12px !important;
     font-size: var(--melon-disc-meta-size, 12px) !important;
     color: var(--muted-color, #6b7280) !important;
     flex-wrap: wrap !important;
@@ -882,10 +906,6 @@ html.melon-cards--active .IndexPage > :not(.container):not(.melon-homepage) {
 
     .melon-hero-title {
         font-size: 22px;
-    }
-
-    .melon-disc-meta {
-        flex-wrap: wrap !important;
     }
 
     .melon-stats-bar {

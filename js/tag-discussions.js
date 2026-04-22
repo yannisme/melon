@@ -3,23 +3,6 @@ app.initializers.add('yannisme-melon-tag-discussions', function(app) {
   'use strict';
 
   var rendered = false;
-  var _escDiv = document.createElement('div');
-
-  function melonT(key, params) {
-    try {
-      if (window.app && window.app.translator) {
-        var result = app.translator.trans('yannisme-melon.forum.' + key);
-        var str = (result && typeof result.toString === 'function') ? result.toString() : String(result);
-        if (params && typeof str === 'string') {
-          Object.keys(params).forEach(function(k) {
-            str = str.split('%' + k + '%').join(String(params[k]));
-          });
-        }
-        return str;
-      }
-    } catch(e) {}
-    return key;
-  }
 
   function isTagPage(url) {
     return /^\/t\/[^\/]+/.test(url);
@@ -77,7 +60,7 @@ app.initializers.add('yannisme-melon-tag-discussions', function(app) {
         if (m._originalParent) m.remove();
       });
       cleanup();
-      waitForFlarumRender(function() { tryRender(); });
+      melonWaitForFlarumRender(function() { tryRender(); });
     } else if (_origRefresh) {
       _origRefresh();
     }
@@ -115,7 +98,7 @@ app.initializers.add('yannisme-melon-tag-discussions', function(app) {
         cleanup();
         document.documentElement.classList.add('melon-anti-flash');
         // Wait for Flarum SPA to finish rendering before we render
-        waitForFlarumRender(function() {
+        melonWaitForFlarumRender(function() {
           tryRender();
         });
       } else if (rendered || document.getElementById('melon-tag-disc-page')) {
@@ -141,47 +124,6 @@ app.initializers.add('yannisme-melon-tag-discussions', function(app) {
     });
   }
 
-  function waitForFlarumRender(callback) {
-    var container = document.querySelector('.App-content') || document.querySelector('.container');
-    if (!container) {
-      // No container yet, wait for it
-      var obs = new MutationObserver(function(mutations, o) {
-        var c = document.querySelector('.App-content') || document.querySelector('.container');
-        if (c) { o.disconnect(); setTimeout(callback, 50); }
-      });
-      obs.observe(document.documentElement, { childList: true, subtree: true });
-      setTimeout(function() { obs.disconnect(); callback(); }, 1000);
-      return;
-    }
-
-    // Record current children to detect when Flarum replaces them
-    var oldChildren = Array.from(container.children);
-    var oldHash = oldChildren.map(function(c) { return c.outerHTML.substring(0, 100); }).join('|');
-
-    // Check immediately if content already changed (rare race condition)
-    var newHash = Array.from(container.children).map(function(c) { return c.outerHTML.substring(0, 100); }).join('|');
-    if (oldHash !== newHash) {
-      setTimeout(callback, 50);
-      return;
-    }
-
-    // Wait for DOM change (Flarum Mithril re-render)
-    var observer = new MutationObserver(function(mutations, obs) {
-      var currentHash = Array.from(container.children).map(function(c) { return c.outerHTML.substring(0, 100); }).join('|');
-      if (currentHash !== oldHash) {
-        obs.disconnect();
-        setTimeout(callback, 50);
-      }
-    });
-    observer.observe(container, { childList: true, subtree: true });
-
-    // Fallback
-    setTimeout(function() {
-      observer.disconnect();
-      callback();
-    }, 800);
-  }
-
   var currentPage = 0;
   var isLoading = false;
   var hasMore = true;
@@ -203,9 +145,12 @@ app.initializers.add('yannisme-melon-tag-discussions', function(app) {
     document.documentElement.classList.remove('melon-anti-flash');
     var old = document.getElementById('melon-tag-disc-page');
     if (old) old.remove();
-    // Restore hidden elements (remove melon-hidden class)
+    // Restore hidden elements (remove melon-hidden class AND inline display:none)
     document.querySelectorAll('.melon-hidden').forEach(function(el) {
       el.classList.remove('melon-hidden');
+    });
+    document.querySelectorAll('[style*="display: none"]').forEach(function(el) {
+      el.style.removeProperty('display');
     });
   }
 
@@ -345,6 +290,8 @@ app.initializers.add('yannisme-melon-tag-discussions', function(app) {
     .catch(function() {
       isLoading = false;
       if (loader) loader.style.display = 'none';
+      // Ensure anti-flash is removed on error to prevent blank page
+      melonRemoveAntiFlash();
     });
   }
 
@@ -360,6 +307,9 @@ app.initializers.add('yannisme-melon-tag-discussions', function(app) {
     var isAdmin = false;
     try { isAdmin = window.app && app.session && app.session.user && app.session.user.attribute('isAdmin'); } catch(e) {}
 
+    // Filter soft-deleted discussions based on user permissions
+    discussions = window.melonFilterHiddenDiscussions(discussions);
+
     discussions.forEach(function(disc) {
       var title = disc.attributes.title || melonT('no_title');
       var discSlug = disc.attributes.slug || '';
@@ -372,7 +322,10 @@ app.initializers.add('yannisme-melon-tag-discussions', function(app) {
       var isSticky = disc.attributes.isSticky || false;
       var isLocked = disc.attributes.isLocked || false;
       var isFollowing = ('subscription' in disc.attributes) && disc.attributes.subscription === 'follow';
-      var isHidden = disc.attributes.isHidden || false;
+      
+      // Determine isHidden from multiple sources
+      var isHidden = window.melonIsDiscussionHidden(disc);
+      disc.attributes.hiddenAt = isHidden ? (disc.attributes.hiddenAt || new Date().toISOString()) : null;
 
       // Get tags
       var discTags = [];
@@ -404,7 +357,7 @@ app.initializers.add('yannisme-melon-tag-discussions', function(app) {
       html += '    <a href="/d/' + disc.id + '-' + discSlug + '" class="melon-td-item-title-link">';
       if (isSticky) html += '<span class="melon-td-badge melon-td-badge-sticky">' + melonT('badge_sticky') + '</span>';
       if (isLocked) html += '<span class="melon-td-badge melon-td-badge-locked">' + melonT('badge_locked') + '</span>';
-      html += '      <h3 class="melon-td-item-title">' + esc(title) + '</h3>';
+      html += '      <h3 class="melon-td-item-title">' + melonEsc(title) + '</h3>';
       html += '    </a>';
       // Menu button (right side, independent)
       var canAct = (window.app && app.session && app.session.user);
@@ -421,7 +374,7 @@ app.initializers.add('yannisme-melon-tag-discussions', function(app) {
           html += '        <span onclick="event.stopPropagation();melonToggleLock(' + disc.id + ',' + !isLocked + ')"><i class="fas fa-lock"></i> ' + (isLocked ? melonT('unlock') : melonT('lock')) + '</span>';
           html += '        <span onclick="event.stopPropagation();melonRenameDiscussion(' + disc.id + ')"><i class="fas fa-pen"></i> ' + melonT('rename') + '</span>';
           html += '        <span onclick="event.stopPropagation();melonEditTags(' + disc.id + ')"><i class="fas fa-tags"></i> ' + melonT('edit_tags') + '</span>';
-          if (disc.attributes.isHidden) {
+          if (isHidden) {
             html += '      <span onclick="event.stopPropagation();melonRestoreDiscussion(' + disc.id + ')"><i class="fas fa-undo"></i> ' + melonT('restore') + '</span>';
           } else {
             html += '      <span class="melon-td-action-danger" onclick="event.stopPropagation();melonDeleteDiscussion(' + disc.id + ')"><i class="fas fa-trash"></i> ' + melonT('delete') + '</span>';
@@ -433,16 +386,16 @@ app.initializers.add('yannisme-melon-tag-discussions', function(app) {
       html += '  </div>';
       // Row 2: Excerpt
       if (plainExcerpt && document.documentElement.classList.contains('melon-tag-disc-excerpt--active')) {
-        html += '  <p class="melon-td-item-excerpt">' + esc(plainExcerpt) + '</p>';
+        html += '  <p class="melon-td-item-excerpt">' + melonEsc(plainExcerpt) + '</p>';
       }
       // Row 3: Meta
       html += '  <div class="melon-td-item-meta">';
-      html += '    <span class="melon-td-item-author">' + esc(author) + '</span>';
+      html += '    <span class="melon-td-item-author">' + melonEsc(author) + '</span>';
       html += '    <span class="melon-td-item-dot">·</span>';
-      html += '    <span class="melon-td-item-time">' + formatTime(createdAt) + '</span>';
+      html += '    <span class="melon-td-item-time">' + melonFormatTime(createdAt) + '</span>';
       if (discTags.length > 0) {
         discTags.forEach(function(dt) {
-          html += '    <a href="/t/' + dt.slug + '" class="melon-td-item-tag" style="color:' + (dt.color || tagColor) + '" onclick="event.stopPropagation()">' + esc(dt.name) + '</a>';
+          html += '    <a href="/t/' + dt.slug + '" class="melon-td-item-tag" style="color:' + (dt.color || tagColor) + '" onclick="event.stopPropagation()">' + melonEsc(dt.name) + '</a>';
         });
       }
       if (replyCount > 0 && document.documentElement.classList.contains('melon-tag-disc-replies--active')) {
@@ -490,22 +443,11 @@ app.initializers.add('yannisme-melon-tag-discussions', function(app) {
     var tagIcon = (tagInfo && tagInfo.attributes && tagInfo.attributes.icon) || '';
     var tagCount = (tagInfo && tagInfo.attributes && tagInfo.attributes.discussionCount) || discussions.length;
 
-    var emojiMap = {
-      'general': '💬', 'discussion': '💬',
-      'help': '🤝', 'support': '🤝',
-      'tutorial': '📚', 'tutorials': '📚',
-      'news': '📰', 'blog': '📰', '公告': '📰',
-      'off-topic': '☕', 'chit-chat': '☕',
-      'development': '💻', 'dev': '💻',
-      'design': '🎨',
-      'games': '🎮', 'gaming': '🎮',
-    };
-
     var iconHtml;
     if (tagIcon) {
-      iconHtml = '<i class="' + esc(tagIcon) + '"></i>';
+      iconHtml = '<i class="' + melonEsc(tagIcon) + '"></i>';
     } else {
-      var emoji = emojiMap[slug.toLowerCase()] || emojiMap[tagName.toLowerCase()] || '🏷️';
+      var emoji = window.melonEmojiMap[slug.toLowerCase()] || window.melonEmojiMap[tagName.toLowerCase()] || '🏷️';
       iconHtml = emoji;
     }
 
@@ -515,16 +457,16 @@ app.initializers.add('yannisme-melon-tag-discussions', function(app) {
     html += '  <div class="melon-td-header-inner">';
     html += '    <div class="melon-td-tag-icon" style="background:' + tagColor + '22; color:' + tagColor + '">' + iconHtml + '</div>';
     html += '    <div class="melon-td-header-text">';
-    html += '      <h1 class="melon-td-title">' + esc(tagName) + '</h1>';
+    html += '      <h1 class="melon-td-title">' + melonEsc(tagName) + '</h1>';
     if (tagDesc) {
-      html += '      <p class="melon-td-desc">' + esc(tagDesc) + '</p>';
+      html += '      <p class="melon-td-desc">' + melonEsc(tagDesc) + '</p>';
     }
     html += '    </div>';
     html += '    <span class="melon-td-count">' + melonT('topics_count', {count: tagCount}) + '</span>';
     // New discussion button (use data attribute, bind event later)
     var canPost = (window.app && app.session && app.session.user);
     if (canPost) {
-      html += '    <button class="melon-td-new-btn" data-tag-slug="' + esc(slug) + '"><i class="fas fa-pen-to-square"></i> ' + melonT('new_discussion') + '</button>';
+      html += '    <button class="melon-td-new-btn" data-tag-slug="' + melonEsc(slug) + '"><i class="fas fa-pen-to-square"></i> ' + melonT('new_discussion') + '</button>';
     }
     html += '  </div>';
     html += '</div>';
@@ -539,13 +481,13 @@ app.initializers.add('yannisme-melon-tag-discussions', function(app) {
         var ctCount = ct.attributes.discussionCount || 0;
         var ctDesc = ct.attributes.description || '';
         var ctIcon = ct.attributes.icon || '';
-        var ctEmoji = emojiMap[ctSlug.toLowerCase()] || emojiMap[ctName.toLowerCase()] || '🏷️';
-        var ctIconHtml = ctIcon ? '<i class="' + esc(ctIcon) + '"></i>' : ctEmoji;
+        var ctEmoji = window.melonEmojiMap[ctSlug.toLowerCase()] || window.melonEmojiMap[ctName.toLowerCase()] || '🏷️';
+        var ctIconHtml = ctIcon ? '<i class="' + melonEsc(ctIcon) + '"></i>' : ctEmoji;
         html += '<a href="/t/' + ctSlug + '" class="melon-td-child">';
         html += '  <span class="melon-td-child-icon" style="background:' + ctColor + '22; color:' + ctColor + '">' + ctIconHtml + '</span>';
         html += '  <span class="melon-td-child-info">';
-        html += '    <span class="melon-td-child-name">' + esc(ctName) + '</span>';
-        if (ctDesc) html += '    <span class="melon-td-child-desc">' + esc(ctDesc) + '</span>';
+        html += '    <span class="melon-td-child-name">' + melonEsc(ctName) + '</span>';
+        if (ctDesc) html += '    <span class="melon-td-child-desc">' + melonEsc(ctDesc) + '</span>';
         html += '  </span>';
         html += '  <span class="melon-td-child-count">' + ctCount + '</span>';
         html += '</a>';
@@ -655,21 +597,6 @@ app.initializers.add('yannisme-melon-tag-discussions', function(app) {
         child.classList.add('melon-hidden');
       }
     });
-  }
-
-  function formatTime(dateStr) {
-    if (!dateStr) return '';
-    var diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
-    if (diff < 60) return melonT('time_just_now');
-    if (diff < 3600) return melonT('time_minutes_ago', {count: Math.floor(diff / 60)});
-    if (diff < 86400) return melonT('time_hours_ago', {count: Math.floor(diff / 3600)});
-    if (diff < 2592000) return melonT('time_days_ago', {count: Math.floor(diff / 86400)});
-    return new Date(dateStr).toLocaleDateString('zh-CN');
-  }
-
-  function esc(str) {
-    _escDiv.textContent = str;
-    return _escDiv.innerHTML;
   }
 
   // Follow/unfollow a discussion (Flarum 2.0: use model.save() like the subscriptions extension does)

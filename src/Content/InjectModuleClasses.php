@@ -119,7 +119,13 @@ class InjectModuleClasses
         foreach ($cssParams as $key => $var) {
             $val = $this->settings->get('melon.' . $key, '');
             if ($val !== '') {
-                $unit = in_array($key, ['css_disc_soft_deleted_opacity']) ? '' : 'px';
+                $noUnit = in_array($key, [
+                    'css_disc_soft_deleted_opacity',
+                    'css_disc_title_weight',
+                    'css_disc_meta_gap',
+                    'css_disc_tag_radius',
+                ]);
+                $unit = $noUnit ? '' : 'px';
                 $paramRules[] = $var . ':' . $val . $unit;
             }
         }
