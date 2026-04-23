@@ -225,13 +225,6 @@ app.initializers.add('yannisme/melon', () => {
       placeholder: '44',
     }, -11)
     .registerSetting({
-      setting: 'melon.discussion_page_floor_jump',
-      label: app.translator.trans('yannisme-melon.admin.settings.discussion_page_floor_jump_label'),
-      help: app.translator.trans('yannisme-melon.admin.settings.discussion_page_floor_jump_help'),
-      type: 'boolean',
-      default: true,
-    }, -12)
-    .registerSetting({
       setting: 'melon.discussion_page_participants',
       label: app.translator.trans('yannisme-melon.admin.settings.discussion_page_participants_label'),
       help: app.translator.trans('yannisme-melon.admin.settings.discussion_page_participants_help'),
@@ -252,6 +245,90 @@ app.initializers.add('yannisme/melon', () => {
       type: 'boolean',
       default: true,
     }, -15)
+    .registerSetting({
+      setting: 'melon.disc_floor_label_1',
+      label: app.translator.trans('yannisme-melon.admin.settings.disc_floor_label_1_label'),
+      help: app.translator.trans('yannisme-melon.admin.settings.disc_floor_label_1_help'),
+      type: 'text',
+      placeholder: '\u697C\u4E3B',
+    }, -15.1)
+    .registerSetting({
+      setting: 'melon.disc_floor_color_1',
+      label: app.translator.trans('yannisme-melon.admin.settings.disc_floor_color_1_label'),
+      help: app.translator.trans('yannisme-melon.admin.settings.disc_floor_color_1_help'),
+      type: 'color-preview',
+      placeholder: '#4ade80',
+    }, -15.11)
+    .registerSetting({
+      setting: 'melon.disc_floor_icon_1',
+      label: app.translator.trans('yannisme-melon.admin.settings.disc_floor_icon_1_label'),
+      help: app.translator.trans('yannisme-melon.admin.settings.disc_floor_icon_1_help'),
+      type: 'text',
+      placeholder: 'fas fa-crown',
+    }, -15.12)
+    .registerSetting({
+      setting: 'melon.disc_floor_label_2',
+      label: app.translator.trans('yannisme-melon.admin.settings.disc_floor_label_2_label'),
+      help: app.translator.trans('yannisme-melon.admin.settings.disc_floor_label_2_help'),
+      type: 'text',
+      placeholder: '\u6C99\u53D1',
+    }, -15.2)
+    .registerSetting({
+      setting: 'melon.disc_floor_color_2',
+      label: app.translator.trans('yannisme-melon.admin.settings.disc_floor_color_2_label'),
+      help: app.translator.trans('yannisme-melon.admin.settings.disc_floor_color_2_help'),
+      type: 'color-preview',
+      placeholder: '#60a5fa',
+    }, -15.21)
+    .registerSetting({
+      setting: 'melon.disc_floor_icon_2',
+      label: app.translator.trans('yannisme-melon.admin.settings.disc_floor_icon_2_label'),
+      help: app.translator.trans('yannisme-melon.admin.settings.disc_floor_icon_2_help'),
+      type: 'text',
+      placeholder: 'fas fa-couch',
+    }, -15.22)
+    .registerSetting({
+      setting: 'melon.disc_floor_label_3',
+      label: app.translator.trans('yannisme-melon.admin.settings.disc_floor_label_3_label'),
+      help: app.translator.trans('yannisme-melon.admin.settings.disc_floor_label_3_help'),
+      type: 'text',
+      placeholder: '\u5730\u677F',
+    }, -15.3)
+    .registerSetting({
+      setting: 'melon.disc_floor_color_3',
+      label: app.translator.trans('yannisme-melon.admin.settings.disc_floor_color_3_label'),
+      help: app.translator.trans('yannisme-melon.admin.settings.disc_floor_color_3_help'),
+      type: 'color-preview',
+      placeholder: '#f59e0b',
+    }, -15.31)
+    .registerSetting({
+      setting: 'melon.disc_floor_icon_3',
+      label: app.translator.trans('yannisme-melon.admin.settings.disc_floor_icon_3_label'),
+      help: app.translator.trans('yannisme-melon.admin.settings.disc_floor_icon_3_help'),
+      type: 'text',
+      placeholder: '',
+    }, -15.32)
+    .registerSetting({
+      setting: 'melon.disc_floor_label_4',
+      label: app.translator.trans('yannisme-melon.admin.settings.disc_floor_label_4_label'),
+      help: app.translator.trans('yannisme-melon.admin.settings.disc_floor_label_4_help'),
+      type: 'text',
+      placeholder: '#4',
+    }, -15.4)
+    .registerSetting({
+      setting: 'melon.disc_floor_color_4',
+      label: app.translator.trans('yannisme-melon.admin.settings.disc_floor_color_4_label'),
+      help: app.translator.trans('yannisme-melon.admin.settings.disc_floor_color_4_help'),
+      type: 'color-preview',
+      placeholder: '',
+    }, -15.41)
+    .registerSetting({
+      setting: 'melon.disc_floor_icon_4',
+      label: app.translator.trans('yannisme-melon.admin.settings.disc_floor_icon_4_label'),
+      help: app.translator.trans('yannisme-melon.admin.settings.disc_floor_icon_4_help'),
+      type: 'text',
+      placeholder: '',
+    }, -15.42)
     .registerSetting({
       setting: 'melon.discussion_page_header_time',
       label: app.translator.trans('yannisme-melon.admin.settings.discussion_page_header_time_label'),
@@ -437,14 +514,36 @@ app.initializers.add('yannisme/melon', () => {
       // Discussion Page
       'Enable Discussion Content Page': 'discussion_page_enabled',
       '启用帖子内容页定制': 'discussion_page_enabled',
-      'Floor Jump': 'discussion_page_floor_jump',
-      '楼层跳转': 'discussion_page_floor_jump',
       'Participants': 'discussion_page_participants',
       '参与者列表': 'discussion_page_participants',
       'Events Sidebar': 'discussion_page_events',
       '事件侧边栏': 'discussion_page_events',
       'Floor Number': 'discussion_page_floor_number',
       '楼层编号': 'discussion_page_floor_number',
+      '1st Floor Label': 'disc_floor_label_1',
+      '第1楼标签': 'disc_floor_label_1',
+      '1st Floor Color': 'disc_floor_color_1',
+      '第1楼颜色': 'disc_floor_color_1',
+      '1st Floor Icon': 'disc_floor_icon_1',
+      '第1楼图标': 'disc_floor_icon_1',
+      '2nd Floor Label': 'disc_floor_label_2',
+      '第2楼标签': 'disc_floor_label_2',
+      '2nd Floor Color': 'disc_floor_color_2',
+      '第2楼颜色': 'disc_floor_color_2',
+      '2nd Floor Icon': 'disc_floor_icon_2',
+      '第2楼图标': 'disc_floor_icon_2',
+      '3rd Floor Label': 'disc_floor_label_3',
+      '第3楼标签': 'disc_floor_label_3',
+      '3rd Floor Color': 'disc_floor_color_3',
+      '第3楼颜色': 'disc_floor_color_3',
+      '3rd Floor Icon': 'disc_floor_icon_3',
+      '第3楼图标': 'disc_floor_icon_3',
+      '4th Floor Label': 'disc_floor_label_4',
+      '第4楼标签': 'disc_floor_label_4',
+      '4th Floor Color': 'disc_floor_color_4',
+      '第4楼颜色': 'disc_floor_color_4',
+      '4th Floor Icon': 'disc_floor_icon_4',
+      '第4楼图标': 'disc_floor_icon_4',
       'Header Time': 'discussion_page_header_time',
       '头部时间': 'discussion_page_header_time',
       // CSS

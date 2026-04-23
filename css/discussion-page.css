@@ -114,9 +114,21 @@ html.melon-disc-page--active .melon-disc-active .Page-container {
     flex-shrink: 0;
     margin-top: 0;
     padding: 0;
+    overflow: visible;
 }
 
-/* Hide original sidebar (scrubber) */
+/* Ensure DiscussionPage-nav dropdown can overflow sidebar */
+.melon-disc-active .melon-disc-sidebar .DiscussionPage-nav {
+    overflow: visible;
+    padding: 10px;
+}
+
+.melon-disc-active .melon-disc-sidebar .DiscussionPage-nav .ButtonGroup,
+.melon-disc-active .melon-disc-sidebar .DiscussionPage-nav :not(.ButtonGroup) > .Button {
+    padding: 4px;
+}
+
+/* Hide original Page-sidebar (scrubber) in its default position */
 .melon-disc-active .Page-sidebar {
     display: none !important;
 }
@@ -455,61 +467,16 @@ html.melon-disc-page--active .melon-disc-active .Page-container {
     cursor: default;
 }
 
-/* ── Floor Jump (sidebar) ── */
-.melon-disc-floor-jump {
-    display: flex;
-    align-items: center;
-    gap: 6px;
+.melon-disc-floor-op {
+    color: var(--melon-disc-floor-op-color, #e85d04);
 }
 
-.melon-disc-floor-input {
-    width: 60px;
-    padding: 4px 8px;
-    border: 1px solid var(--control-bg, #e5e7eb);
-    border-radius: 6px;
-    font-size: 13px;
-    text-align: center;
-    background: var(--body-bg, #fff);
-    color: var(--text-color, #1a1a2e);
-    outline: none;
-    transition: border-color 0.2s ease;
-    -moz-appearance: textfield;
+.melon-disc-floor-sofa {
+    color: var(--melon-disc-floor-sofa-color, #3b82f6);
 }
 
-.melon-disc-floor-input::-webkit-inner-spin-button,
-.melon-disc-floor-input::-webkit-outer-spin-button {
-    -webkit-appearance: none;
-    margin: 0;
-}
-
-.melon-disc-floor-input:focus {
-    border-color: var(--melon-primary, #4ade80);
-}
-
-.melon-disc-floor-total {
-    font-size: 13px;
-    color: var(--muted-color, #9ca3af);
-    flex-shrink: 0;
-    margin-left: 2px;
-}
-
-.melon-disc-floor-btn {
-    padding: 4px 12px;
-    border: 1px solid var(--control-bg, #e5e7eb);
-    border-radius: 6px;
-    font-size: 12px;
-    font-weight: 500;
-    background: var(--control-bg, #f3f4f6);
-    color: var(--text-color, #1a1a2e);
-    cursor: pointer;
-    transition: all 0.2s ease;
-    flex-shrink: 0;
-}
-
-.melon-disc-floor-btn:hover {
-    background: var(--melon-primary, #4ade80);
-    color: #fff;
-    border-color: var(--melon-primary, #4ade80);
+.melon-disc-floor-floor {
+    color: var(--melon-disc-floor-floor-color, #10b981);
 }
 
 /* ── Post Header — simple row: avatar + name + time ── */
@@ -730,14 +697,16 @@ html.melon-disc-page--active .melon-disc-active .Page-container {
         padding: 12px;
     }
 
+    /* Sidebar: move to bottom, horizontal card layout */
     .melon-disc-active .melon-disc-sidebar {
         width: 100%;
         display: flex;
-        flex-wrap: wrap;
-        gap: 16px;
-        margin-bottom: 16px;
-        padding-bottom: 16px;
-        border-bottom: 1px solid var(--control-bg, #e5e7eb);
+        flex-direction: column;
+        gap: 12px;
+        margin-top: 16px;
+        padding-top: 16px;
+        border-top: 1px solid var(--control-bg, #e5e7eb);
+        order: 2;
     }
 
     .melon-disc-sidebar-section {
@@ -746,8 +715,36 @@ html.melon-disc-page--active .melon-disc-active .Page-container {
         border-bottom: none;
     }
 
+    /* Tags: horizontal scroll on mobile */
+    .melon-disc-sidebar-section:has(.melon-disc-sidebar-tag) .melon-disc-sidebar-content {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        gap: 8px;
+        padding-bottom: 4px;
+    }
+
+    .melon-disc-sidebar-section:has(.melon-disc-sidebar-tag) .melon-disc-sidebar-label {
+        margin-bottom: 6px;
+    }
+
+    /* Participants: compact on mobile */
+    .melon-disc-sidebar-participant {
+        padding: 2px 0;
+    }
+
+    /* Events: compact on mobile */
+    .melon-disc-sidebar-event {
+        padding: 6px 0;
+    }
+
+    .melon-disc-sidebar-event-row2 {
+        margin-top: 4px;
+    }
+
+    /* PostStream: remove left padding on mobile, keep avatar inline */
     .melon-disc-active .PostStream-item {
-        padding-left: 44px !important;
+        padding-left: 0 !important;
     }
 
     .melon-disc-active .PostStream-item .Post-header .Avatar {
@@ -757,13 +754,18 @@ html.melon-disc-page--active .melon-disc-active .Page-container {
     }
 
     .melon-disc-active .PostStream-item:not(:last-child)::after {
-        left: 15px;
+        display: none;
     }
 
     .melon-disc-active .ReplyPlaceholder,
     .melon-disc-active .Composer,
     .melon-disc-active .LoadingPost {
-        margin-left: 44px;
-        max-width: calc(100% - 44px);
+        margin-left: 0;
+        max-width: 100%;
+    }
+
+    /* DiscussionPage-nav in sidebar: full width on mobile */
+    .melon-disc-active .melon-disc-sidebar .DiscussionPage-nav {
+        padding: 8px 0;
     }
 }

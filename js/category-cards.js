@@ -4,6 +4,30 @@ app.initializers.add('yannisme-melon-category-cards', function(app) {
 
   var rendered = false;
 
+  // Continuously hide Flarum's loading/error indicators while melon homepage is active.
+  // Uses MutationObserver to catch elements added after SPA navigation.
+  var _flarumLoadingObserver = null;
+  function _hideFlarumLoading() {
+    var selectors = '.LoadingIndicator, .Alert, .ErrorAlert, .flarum-loading, .flarum-loading-error';
+    var containers = document.querySelectorAll('.App-content, .IndexPage > .container');
+    containers.forEach(function(ct) {
+      ct.querySelectorAll(':scope > ' + selectors).forEach(function(el) {
+        el.style.display = 'none';
+      });
+    });
+  }
+  function _startFlarumLoadingWatcher() {
+    if (_flarumLoadingObserver) return;
+    _flarumLoadingObserver = new MutationObserver(function() {
+      if (!document.documentElement.classList.contains('melon-cards--active')) return;
+      _hideFlarumLoading();
+    });
+    var appContent = document.querySelector('.App-content') || document.documentElement;
+    _flarumLoadingObserver.observe(appContent, { childList: true, subtree: true });
+  }
+  // Start watching immediately
+  _startFlarumLoadingWatcher();
+
   function init() {
     // Immediately hide default Flarum homepage content to prevent flash
     // This runs before any rendering, so there's no flicker
@@ -52,6 +76,8 @@ app.initializers.add('yannisme-melon-category-cards', function(app) {
           var oldHome = document.getElementById('melon-homepage');
           if (oldHome) oldHome.remove();
           document.documentElement.classList.add('melon-anti-flash');
+          // Hide any existing Flarum loading/error content immediately
+          _hideFlarumLoading();
           // Use shared waitForFlarumRender instead of multiple setTimeout
           melonWaitForFlarumRender(function() { tryRender(); });
         } else {
@@ -173,7 +199,7 @@ app.initializers.add('yannisme-melon-category-cards', function(app) {
             var t = model.data;
             if (!t) return;
             var attrs = t.attributes || {};
-            if (attrs.position !== null && !attrs.isChild && attrs.slug !== 'untagged') {
+            if (attrs.slug !== 'untagged') {
               tags.push(t);
             }
           });
@@ -201,7 +227,7 @@ app.initializers.add('yannisme-melon-category-cards', function(app) {
       .then(function(data) {
         if (!data || !data.data) return;
         tags = data.data.filter(function(t) {
-          return t.attributes.position !== null && !t.attributes.isChild && t.attributes.slug !== 'untagged';
+          return t.attributes.slug !== 'untagged';
         });
         tags.sort(function(a, b) { return (a.attributes.position || 0) - (b.attributes.position || 0); });
         buildFromStoreEnhanced(container, tags);
@@ -993,24 +1019,46 @@ app.initializers.add('yannisme-melon-category-cards', function(app) {
       }
 
       var allTags = data.data.filter(function(t) {
-        return !t.attributes.isChild && t.attributes.slug !== 'untagged';
+        return t.attributes.slug !== 'untagged';
       });
-      allTags.sort(function(a, b) { return (a.attributes.position || 999) - (b.attributes.position || 999); });
+      // Separate primary and child tags
+      var primaryTags = allTags.filter(function(t) { return !t.attributes.isChild; });
+      var childTags = allTags.filter(function(t) { return t.attributes.isChild; });
+      primaryTags.sort(function(a, b) { return (a.attributes.position || 999) - (b.attributes.position || 999); });
+      childTags.sort(function(a, b) { return (a.attributes.position || 999) - (b.attributes.position || 999); });
 
       // Build modal HTML
       var modalHtml = '<div class="melon-modal-overlay" id="melon-tag-modal">';
       modalHtml += '<div class="melon-modal">';
       modalHtml += '  <div class="melon-modal-header"><h3>' + melonT('edit_tags_title') + '</h3><span class="melon-modal-close" onclick="melonCloseTagModal()">&times;</span></div>';
       modalHtml += '  <div class="melon-modal-body">';
-      allTags.forEach(function(tag) {
+      function renderTagOption(tag, indent) {
         var name = tag.attributes.name || '';
         var color = tag.attributes.color || '#999';
         var checked = currentTagIds.indexOf(tag.id) !== -1 || currentTagIds.indexOf(tag.attributes.name) !== -1 ? 'checked' : '';
-        modalHtml += '<label class="melon-tag-option">';
+        var style = indent ? ' style="padding-left:28px"' : '';
+        modalHtml += '<label class="melon-tag-option"' + style + '>';
         modalHtml += '  <input type="checkbox" value="' + tag.id + '" ' + checked + '>';
         modalHtml += '  <span class="melon-tag-color" style="background:' + color + '"></span>';
         modalHtml += '  <span>' + name + '</span>';
         modalHtml += '</label>';
+      }
+      primaryTags.forEach(function(tag) {
+        renderTagOption(tag, false);
+        // Render child tags under this primary tag
+        childTags.forEach(function(child) {
+          var parent = child.relationships && child.relationships.parent && child.relationships.parent.data;
+          if (parent && parent.id === tag.id) {
+            renderTagOption(child, true);
+          }
+        });
+      });
+      // Also render orphan child tags (no matching parent)
+      childTags.forEach(function(child) {
+        var parent = child.relationships && child.relationships.parent && child.relationships.parent.data;
+        if (!parent || !primaryTags.some(function(p) { return p.id === parent.id; })) {
+          renderTagOption(child, false);
+        }
       });
       modalHtml += '  </div>';
       modalHtml += '  <div class="melon-modal-footer">';
@@ -1213,14 +1261,16 @@ app.initializers.add('yannisme-melon-category-cards', function(app) {
     if (_discRendered) return;
     var page = document.querySelector('.DiscussionPage');
     if (!page) return;
-    if (!document.querySelector('.DiscussionPage .PostStream')) return;
 
     _discRendered = true;
 
+    // Ensure anti-flash is removed (safety for direct URL access)
+    document.documentElement.classList.remove('melon-anti-flash');
+
     page.classList.add('melon-disc-active');
-    discMoveEventsToSidebar(page);
     discRestructureHero(page);
     discCreateSidebar(page);
+    discMoveEventsToSidebar(page);
     discStylePosts(page);
     discApplyHiddenState(page);
     discObserveNewPosts(page);
@@ -1263,12 +1313,10 @@ app.initializers.add('yannisme-melon-category-cards', function(app) {
           }
           // Update the visual state on the discussion page
           if (nowHidden) {
-            page.classList.add('melon-disc-page-hidden');
             if (!page.querySelector('.melon-disc-hidden-banner')) {
               discApplyHiddenState(page);
             }
           } else {
-            page.classList.remove('melon-disc-page-hidden');
             var b = page.querySelector('.melon-disc-hidden-banner');
             if (b) b.remove();
           }
@@ -1298,9 +1346,6 @@ app.initializers.add('yannisme-melon-category-cards', function(app) {
       // Check both discussion and first post hidden state
       var isHidden = window.melonIsDiscussionHidden({ id: discId, relationships: (model.data || model).relationships, attributes: (model.data || model).attributes });
       if (!isHidden) return;
-
-      // Add soft-deleted class to the page
-      page.classList.add('melon-disc-page-hidden');
 
       // Add soft-deleted banner before the first post
       var firstItem = page.querySelector('.PostStream-item');
@@ -1345,7 +1390,6 @@ app.initializers.add('yannisme-melon-category-cards', function(app) {
                 }
               }
               Promise.all(promises).then(function() {
-                page.classList.remove('melon-disc-page-hidden');
                 var b = page.querySelector('.melon-disc-hidden-banner');
                 if (b) b.remove();
               }).catch(function(err) {
@@ -1420,7 +1464,7 @@ app.initializers.add('yannisme-melon-category-cards', function(app) {
         item.style.display = 'none';
       }
     });
-    page._melonEvents = events;
+    _discEvents = events;
   }
 
   // Get clean username from PostUser-name (Flarum puts avatar text "A" inside it)
@@ -1506,77 +1550,7 @@ app.initializers.add('yannisme-melon-category-cards', function(app) {
       if (avatarEl) authorAvatar = avatarEl.src || '';
     }
 
-    // Floor jump section — input box to jump to a specific floor
-    // Get total post count from Flarum store (not just visible DOM items)
-    var allStreamItems = page.querySelectorAll('.PostStream-item');
-    var visibleCount = 0;
-    allStreamItems.forEach(function(item) {
-      if (item.style.display !== 'none' && !item.querySelector('.ReplyPlaceholder, .Composer')) visibleCount++;
-    });
-    var totalFloors = visibleCount;
-    try {
-      var discId = window.location.pathname.match(/^\/d\/(\d+)/);
-      if (discId && window.app && app.store) {
-        var discModel = app.store.getById('discussions', discId[1]);
-        if (discModel && discModel.data && discModel.data.attributes) {
-          var commentCount = discModel.data.attributes.commentCount || 0;
-          // commentCount = replies only, total posts = replies + 1 (first post)
-          var apiTotal = commentCount + 1;
-          if (apiTotal > totalFloors) totalFloors = apiTotal;
-        }
-      }
-    } catch(e) {}
-    if (totalFloors > 0 && document.documentElement.classList.contains('melon-disc-floor-jump--active')) {
-      sidebar.appendChild(discMakeSection(melonT('floor_jump'), function(ct) {
-        var jumpRow = document.createElement('div');
-        jumpRow.className = 'melon-disc-floor-jump';
-
-        var input = document.createElement('input');
-        input.type = 'number';
-        input.min = '1';
-        input.max = String(totalFloors);
-        input.placeholder = melonT('floor_number');
-        input.className = 'melon-disc-floor-input';
-        input.id = 'melon-disc-floor-input';
-
-        var total = document.createElement('span');
-        total.className = 'melon-disc-floor-total';
-        total.textContent = '/ ' + totalFloors;
-
-        var btn = document.createElement('button');
-        btn.className = 'melon-disc-floor-btn';
-        btn.type = 'button';
-        btn.textContent = melonT('go');
-        btn.addEventListener('click', function() {
-          var val = parseInt(input.value, 10);
-          if (val >= 1 && val <= totalFloors) {
-            var target = document.getElementById('melon-disc-floor-' + val);
-            if (target) {
-              target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            } else {
-              // Floor not in DOM yet — navigate via URL hash to trigger Flarum lazy-load
-              // Flarum uses /d/{id}/{nearNumber} to load posts near that number
-              var nearNum = Math.max(1, val - 1); // Flarum's near param is 0-based for replies
-              var currentPath = window.location.pathname.replace(/\/\d+\/?\s*$/, '');
-              history.pushState(null, '', currentPath + '/' + nearNum);
-              window.dispatchEvent(new Event('locationchange'));
-            }
-          }
-        });
-
-        input.addEventListener('keydown', function(e) {
-          if (e.key === 'Enter') {
-            e.preventDefault();
-            btn.click();
-          }
-        });
-
-        jumpRow.appendChild(input);
-        jumpRow.appendChild(total);
-        jumpRow.appendChild(btn);
-        ct.appendChild(jumpRow);
-      }));
-    }
+    // Floor jump is handled by native Flarum Scrubber (Page-sidebar)
 
     // Tags section — clickable links
     var heroTags = page.querySelectorAll('.Hero .TagLabel');
@@ -1744,9 +1718,9 @@ app.initializers.add('yannisme-melon-category-cards', function(app) {
     }
 
     // Events section (moved from main stream, with controls)
-    var events = page._melonEvents || [];
+    var events = _discEvents || [];
     if (events.length > 0 && document.documentElement.classList.contains('melon-disc-events--active')) {
-      sidebar.appendChild(discMakeSection(melonT('events'), function(ct) {
+      var evSection = discMakeSection(melonT('events'), function(ct) {
         events.forEach(function(ev) {
           var item = document.createElement('div');
           item.className = 'melon-disc-sidebar-event';
@@ -1781,7 +1755,15 @@ app.initializers.add('yannisme-melon-category-cards', function(app) {
           }
           ct.appendChild(item);
         });
-      }));
+      });
+      evSection.classList.add('melon-disc-sidebar-events');
+      sidebar.appendChild(evSection);
+    }
+
+    // Move DiscussionPage-nav into Melon sidebar (as last child)
+    var nav = page.querySelector('.DiscussionPage-nav');
+    if (nav) {
+      sidebar.appendChild(nav);
     }
 
     container.appendChild(sidebar);
@@ -1813,26 +1795,111 @@ app.initializers.add('yannisme-melon-category-cards', function(app) {
     return section;
   }
 
-  function discStylePosts(page, targetItems) {
-    // No OP badge on first post
+  // Store observer and poll timer references for cleanup
+  var _discPostObserver = null;
+  var _discPostPollTimer = null;
+  var _discPostStyleRAF = null;  // requestAnimationFrame ID for debouncing
+  var _discEvents = [];  // Collected events (module-level, survives Mithril redraws)
 
-    // Add floor numbers to all visible posts (skip hidden EventPosts)
+  function discStylePosts(page, targetItems) {
+    try {
+    // Add floor numbers to all visible posts using Flarum's post number attribute
+    // Also handle EventPosts (hide them and collect for sidebar)
     var allItems = targetItems || page.querySelectorAll('.PostStream-item');
-    // Find the highest existing floor number to continue from there
-    var maxFloor = 0;
-    page.querySelectorAll('[data-melon-floor]').forEach(function(el) {
-      var f = parseInt(el.getAttribute('data-melon-floor'), 10);
-      if (f > maxFloor) maxFloor = f;
-    });
-    var floorIndex = maxFloor;
+    var newEvents = [];
     allItems.forEach(function(item) {
-      if (item.classList.contains('melon-disc-styled')) return;
-      // Skip hidden EventPosts and ReplyPlaceholder
+      // Skip hidden items
       if (item.style.display === 'none') return;
+      // Skip ReplyPlaceholder and Composer
       if (item.querySelector('.ReplyPlaceholder, .Composer')) return;
-      floorIndex++;
+
+      // Check if this is an EventPost
+      var ep = item.querySelector('.EventPost');
+      if (ep) {
+        // Skip if already hidden (our modification is still intact)
+        if (item.style.display === 'none' && item.classList.contains('melon-disc-styled')) return;
+        // Parse event info
+        var info = ep.querySelector('.EventPost-info');
+        var desc = '';
+        var time = '';
+        if (info) {
+          var clone = info.cloneNode(true);
+          var timeEl = clone.querySelector('.Datetime, time, .item-time');
+          if (timeEl) {
+            time = timeEl.textContent.trim();
+            timeEl.parentNode.removeChild(timeEl);
+          }
+          desc = clone.textContent.trim().replace(/\s+/g, ' ');
+          if (desc.toLowerCase().indexOf('tag') !== -1) {
+            desc = desc.replace(/(\d)([a-zA-Z\u4e00-\u9fff])/g, '$1, $2');
+          }
+        }
+        var icon = 'fas fa-circle-info';
+        var textLower = desc.toLowerCase();
+        if (textLower.indexOf('tag') !== -1 || textLower.indexOf('\u6807\u7B7E') !== -1) {
+          icon = 'fas fa-tag';
+        } else if (textLower.indexOf('like') !== -1 || textLower.indexOf('\u8D5E') !== -1) {
+          icon = 'fas fa-thumbs-up';
+        } else if (textLower.indexOf('reply') !== -1 || textLower.indexOf('\u56DE\u590D') !== -1) {
+          icon = 'fas fa-reply';
+        } else if (textLower.indexOf('renamed') !== -1 || textLower.indexOf('\u91CD\u547D\u540D') !== -1) {
+          icon = 'fas fa-pencil';
+        } else if (textLower.indexOf('deleted') !== -1 || textLower.indexOf('\u5220\u9664') !== -1) {
+          icon = 'fas fa-trash';
+        } else if (textLower.indexOf('stic') !== -1 || textLower.indexOf('\u7F6E\u9876') !== -1) {
+          icon = 'fas fa-thumbtack';
+        } else if (textLower.indexOf('lock') !== -1 || textLower.indexOf('\u9501\u5B9A') !== -1) {
+          icon = 'fas fa-lock';
+        }
+        var controlsHTML = '';
+        var controls = ep.querySelector('.Post-actions') || ep.querySelector('.item-controls');
+        if (controls) controlsHTML = controls.innerHTML;
+        newEvents.push({ id: item.getAttribute('data-id'), text: desc, time: time, icon: icon, controlsHTML: controlsHTML });
+        item.style.display = 'none';
+        item.classList.add('melon-disc-styled');
+        return; // Skip further processing for EventPosts
+      }
+
+      // Regular CommentPost processing
+      // ALWAYS re-check if styling is intact. Mithril redraws can rebuild
+      // inner DOM while keeping the outer .PostStream-item, so we must
+      // verify our modifications are still present.
+      var hasFloorNum = item.querySelector('.melon-disc-floor-num');
+      var hasAvatarInHeader = item.querySelector('.melon-disc-in-header');
+      var needsReStyle = !hasFloorNum || !hasAvatarInHeader;
+
+      // Calculate visible floor index (only count CommentPosts, skip EventPosts)
+      // This ensures events don't consume floor numbers
+      var floorIndex = 0;
+      var allItems = page.querySelectorAll('.PostStream-item');
+      for (var fi = 0; fi < allItems.length; fi++) {
+        var fiItem = allItems[fi];
+        if (fiItem.style.display === 'none') continue;
+        if (fiItem.querySelector('.ReplyPlaceholder, .Composer')) continue;
+        if (fiItem.querySelector('.EventPost')) continue;
+        floorIndex++;
+        if (fiItem === item) break;
+      }
+      if (floorIndex === 0) floorIndex = 1; // Safety fallback
+
       item.classList.add('melon-disc-styled');
       item.setAttribute('data-melon-floor', String(floorIndex));
+
+      // Skip if all our modifications are still present
+      if (!needsReStyle) return;
+
+      // Clean up any partial old modifications before re-styling
+      var oldFloorNum = item.querySelector('.melon-disc-floor-num');
+      if (oldFloorNum) oldFloorNum.remove();
+      var oldAvatarInHeader = item.querySelector('.melon-disc-in-header');
+      if (oldAvatarInHeader) {
+        // Move avatar back to its original position (before .CommentPost)
+        var commentPost = item.querySelector('.CommentPost') || item.querySelector('.Post');
+        if (commentPost) {
+          oldAvatarInHeader.classList.remove('melon-disc-in-header');
+          item.insertBefore(oldAvatarInHeader, commentPost);
+        }
+      }
 
       var post = item.querySelector('.CommentPost') || item.querySelector('.Post');
       if (!post) return;
@@ -1847,11 +1914,42 @@ app.initializers.add('yannisme-melon-category-cards', function(app) {
         header.insertBefore(avatar, header.firstChild);
       }
 
-      // 1.5 Add floor number before avatar
-      if (document.documentElement.classList.contains('melon-disc-floor-num--active')) {
+      // 1.5 Add floor label before avatar (only show for first 4 floors)
+      if (document.documentElement.classList.contains('melon-disc-floor-num--active') && floorIndex <= 4) {
         var floorNum = document.createElement('span');
         floorNum.className = 'melon-disc-floor-num';
-        floorNum.textContent = '#' + floorIndex;
+        // Read custom labels, colors and icons from admin settings
+        var label = '', floorColor = '', floorIcon = '';
+        try {
+          var settings = app.data.settings || {};
+          label = settings['melon.disc_floor_label_' + floorIndex] || '';
+          floorColor = settings['melon.disc_floor_color_' + floorIndex] || '';
+          floorIcon = settings['melon.disc_floor_icon_' + floorIndex] || '';
+        } catch(e) {}
+        // Build floor label content
+        var floorContent = '';
+        if (floorIcon && floorIcon.trim()) {
+          if (floorIcon.trim().indexOf('http') === 0 || floorIcon.trim().indexOf('/') === 0) {
+            // URL icon
+            floorContent = '<img src="' + melonEsc(floorIcon.trim()) + '" style="width:14px;height:14px;margin-right:3px;vertical-align:middle" />';
+          } else {
+            // Font Awesome class
+            floorContent = '<i class="' + melonEsc(floorIcon.trim()) + '" style="margin-right:3px;font-size:12px"></i>';
+          }
+        }
+        if (label && label.trim()) {
+          floorNum.innerHTML = floorContent + melonEsc(label.trim());
+          if (floorIndex === 1) floorNum.classList.add('melon-disc-floor-op');
+          else if (floorIndex === 2) floorNum.classList.add('melon-disc-floor-sofa');
+          else if (floorIndex === 3) floorNum.classList.add('melon-disc-floor-floor');
+        } else {
+          floorNum.textContent = '#' + floorIndex;
+        }
+        // Apply custom color
+        if (floorColor && floorColor.trim()) {
+          floorNum.style.color = floorColor.trim();
+          floorNum.style.background = floorColor.trim() + '18';
+        }
         floorNum.id = 'melon-disc-floor-' + floorIndex;
         header.insertBefore(floorNum, header.firstChild);
       }
@@ -1904,25 +2002,208 @@ app.initializers.add('yannisme-melon-category-cards', function(app) {
 
       // 4. No identity column inside post — badges go to sidebar instead
     });
+
+    // If we found new EventPosts, add them to sidebar (deduplicate by data-id)
+    if (newEvents.length > 0) {
+      // Build a set of existing event IDs to prevent duplicates
+      var existingIds = {};
+      _discEvents.forEach(function(ev) { if (ev.id) existingIds[ev.id] = true; });
+      var uniqueNew = [];
+      newEvents.forEach(function(ev) {
+        if (ev.id && existingIds[ev.id]) return; // Skip duplicate
+        uniqueNew.push(ev);
+        existingIds[ev.id] = true;
+      });
+      if (uniqueNew.length > 0) {
+        _discEvents = _discEvents.concat(uniqueNew);
+        discUpdateEventsSidebar(page);
+      }
+    }
+
+    } catch(e) {
+      console.warn('[Melon] discStylePosts error:', e);
+    }
+  }
+
+  // Update the events section in sidebar with new events
+  function discUpdateEventsSidebar(page) {
+    if (!document.documentElement.classList.contains('melon-disc-events--active')) return;
+    var events = _discEvents || [];
+    if (events.length === 0) return;
+
+    var sidebar = document.querySelector('.melon-disc-sidebar');
+    if (!sidebar) return;
+
+    // Find or create events section
+    var eventsSection = sidebar.querySelector('.melon-disc-sidebar-events');
+    if (eventsSection) {
+      // Remove old content
+      eventsSection.innerHTML = '';
+    } else {
+      // Create new section — insert before DiscussionPage-nav to maintain order
+      var section = document.createElement('div');
+      section.className = 'melon-disc-sidebar-section melon-disc-sidebar-events';
+      var title = document.createElement('div');
+      title.className = 'melon-disc-sidebar-label';
+      title.textContent = melonT('events');
+      section.appendChild(title);
+      var content = document.createElement('div');
+      content.className = 'melon-disc-sidebar-content';
+      section.appendChild(content);
+      var nav = sidebar.querySelector('.DiscussionPage-nav');
+      if (nav) {
+        sidebar.insertBefore(section, nav);
+      } else {
+        sidebar.appendChild(section);
+      }
+      eventsSection = content;
+    }
+
+    // Add all events
+    events.forEach(function(ev) {
+      var item = document.createElement('div');
+      item.className = 'melon-disc-sidebar-event';
+      var row1 = document.createElement('div');
+      row1.className = 'melon-disc-sidebar-event-row1';
+      var iconEl = document.createElement('i');
+      iconEl.className = ev.icon + ' melon-disc-sidebar-event-icon';
+      row1.appendChild(iconEl);
+      var textSpan = document.createElement('span');
+      textSpan.className = 'melon-disc-sidebar-event-text';
+      textSpan.textContent = ev.text;
+      row1.appendChild(textSpan);
+      item.appendChild(row1);
+      if (ev.time || ev.controlsHTML) {
+        var row2 = document.createElement('div');
+        row2.className = 'melon-disc-sidebar-event-row2';
+        if (ev.time) {
+          var timeSpan = document.createElement('span');
+          timeSpan.className = 'melon-disc-sidebar-event-time';
+          timeSpan.textContent = ev.time;
+          row2.appendChild(timeSpan);
+        }
+        if (ev.controlsHTML) {
+          var ctrlWrap = document.createElement('div');
+          ctrlWrap.className = 'melon-disc-sidebar-event-controls';
+          ctrlWrap.innerHTML = ev.controlsHTML;
+          row2.appendChild(ctrlWrap);
+        }
+        item.appendChild(row2);
+      }
+      eventsSection.appendChild(item);
+    });
   }
 
   function discObserveNewPosts(page) {
     var stream = page.querySelector('.PostStream');
     if (!stream) return;
-    var observer = new MutationObserver(function(mutations) {
-      var newItems = [];
-      mutations.forEach(function(mutation) {
-        mutation.addedNodes.forEach(function(node) {
-          if (node.nodeType === 1 && node.classList && node.classList.contains('PostStream-item')) {
-            newItems.push(node);
+    // Disconnect previous observer and poll timer if exists (prevent memory leak)
+    if (_discPostObserver) {
+      _discPostObserver.disconnect();
+      _discPostObserver = null;
+    }
+    if (_discPostPollTimer) {
+      clearInterval(_discPostPollTimer);
+      _discPostPollTimer = null;
+    }
+    if (_discPostStyleRAF) {
+      cancelAnimationFrame(_discPostStyleRAF);
+      _discPostStyleRAF = null;
+    }
+
+    // Helper: schedule styling with debouncing (wait for Mithril redraw to settle)
+    // Use double RAF to ensure we run AFTER Mithril's redraw completes
+    function scheduleStyle() {
+      if (_discPostStyleRAF) cancelAnimationFrame(_discPostStyleRAF);
+      _discPostStyleRAF = requestAnimationFrame(function() {
+        _discPostStyleRAF = requestAnimationFrame(function() {
+          _discPostStyleRAF = null;
+          var currentPage = document.querySelector('.DiscussionPage');
+          if (currentPage) {
+            discStylePosts(currentPage);
           }
         });
       });
-      if (newItems.length > 0) {
-        discStylePosts(page, newItems);
-      }
+    }
+
+    // Style any unstyled posts that exist right now (safety net)
+    discStylePosts(page);
+
+    // MutationObserver: watch for DOM changes that may add/replace posts.
+    // IMPORTANT: We observe .App-content (or body) because Flarum/Mithril may
+    // replace the entire .DiscussionPage element during lazy-load redraws.
+    var appContent = document.querySelector('.App-content') || document.body;
+    _discPostObserver = new MutationObserver(function(mutations) {
+      // Use debouncing: wait for Mithril redraw to complete before styling
+      scheduleStyle();
     });
-    observer.observe(stream, { childList: true });
+    // Observe .App-content for subtree changes (catches everything including
+    // .DiscussionPage replacement, .PostStream rebuilds, etc.)
+    _discPostObserver.observe(appContent, { childList: true, subtree: true });
+
+    // Polling fallback: every 300ms, check for any unstyled posts.
+    // IMPORTANT: Always re-query current DOM elements.
+    // NOTE: Do NOT check for .melon-disc-active class here, because Mithril
+    // redraws can strip it from .DiscussionPage. Instead, check the URL path.
+    _discPostPollTimer = setInterval(function() {
+      // Stop if we navigated away from any discussion page
+      if (!window.location.pathname.match(/^\/d\/\d+/)) {
+        if (_discPostPollTimer) { clearInterval(_discPostPollTimer); _discPostPollTimer = null; }
+        return;
+      }
+      var currentPage = document.querySelector('.DiscussionPage');
+      if (!currentPage) return;
+      // Re-add melon-disc-active if Mithril stripped it during redraw
+      if (!currentPage.classList.contains('melon-disc-active')) {
+        currentPage.classList.add('melon-disc-active');
+      }
+      discStylePosts(currentPage);
+    }, 300);
+
+    // Hook into network activity to re-apply styles after Flarum's lazy-load API calls.
+    function onNetworkComplete() {
+      scheduleStyle();
+      setTimeout(function() {
+        var p = document.querySelector('.DiscussionPage');
+        if (p) discStylePosts(p);
+      }, 150);
+      setTimeout(function() {
+        var p = document.querySelector('.DiscussionPage');
+        if (p) discStylePosts(p);
+      }, 400);
+      setTimeout(function() {
+        var p = document.querySelector('.DiscussionPage');
+        if (p) discStylePosts(p);
+      }, 800);
+    }
+
+    // Hook fetch — only intercept API calls to /api/posts (lazy-load)
+    var _origFetch = window.fetch;
+    if (_origFetch && !_origFetch._melonPatched) {
+      window.fetch = function() {
+        var promise = _origFetch.apply(this, arguments);
+        var url = arguments[0] && typeof arguments[0] === 'string' ? arguments[0] : (arguments[0] && arguments[0].url ? arguments[0].url : '');
+        if (url.indexOf('/api/posts') !== -1 || url.indexOf('filter[discussion]') !== -1) {
+          promise.then(onNetworkComplete).catch(function() {});
+        }
+        return promise;
+      };
+      window.fetch._melonPatched = true;
+    }
+
+    // Hook XMLHttpRequest — only intercept API calls to /api/posts
+    var _origXHROpen = XMLHttpRequest.prototype.open;
+    if (!_origXHROpen._melonPatched) {
+      XMLHttpRequest.prototype.open = function() {
+        var xhr = this;
+        _origXHROpen.apply(this, arguments);
+        var url = arguments[1] || '';
+        if (url.indexOf('/api/posts') !== -1 || url.indexOf('filter[discussion]') !== -1) {
+          xhr.addEventListener('load', onNetworkComplete);
+        }
+      };
+      XMLHttpRequest.prototype.open._melonPatched = true;
+    }
   }
 
   // Check if we're on a discussion page
@@ -1933,8 +2214,22 @@ app.initializers.add('yannisme-melon-category-cards', function(app) {
       // Navigated away from discussion page — reset state
       if (_discRendered) {
         _discRendered = false;
+        _discEvents = [];  // Clear collected events
+        // Disconnect post observer and poll timer to prevent memory leak
+        if (_discPostObserver) {
+          _discPostObserver.disconnect();
+          _discPostObserver = null;
+        }
+        if (_discPostPollTimer) {
+          clearInterval(_discPostPollTimer);
+          _discPostPollTimer = null;
+        }
+        if (_discPostStyleRAF) {
+          cancelAnimationFrame(_discPostStyleRAF);
+          _discPostStyleRAF = null;
+        }
         // Clean up old discussion page elements
-        var oldPage = document.querySelector('.DiscussionPage.melon-disc-active');
+        var oldPage = document.querySelector('.DiscussionPage');
         if (oldPage) oldPage.classList.remove('melon-disc-active');
         var oldSidebar = document.querySelector('.melon-disc-sidebar');
         if (oldSidebar) oldSidebar.remove();

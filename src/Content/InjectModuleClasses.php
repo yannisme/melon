@@ -192,9 +192,6 @@ class InjectModuleClasses
         // Discussion Page module
         if ((bool) $this->settings->get('melon.discussion_page_enabled', false)) {
             $classList[] = 'melon-disc-page--active';
-            if ((bool) $this->settings->get('melon.discussion_page_floor_jump', true)) {
-                $classList[] = 'melon-disc-floor-jump--active';
-            }
             if ((bool) $this->settings->get('melon.discussion_page_participants', true)) {
                 $classList[] = 'melon-disc-participants--active';
             }

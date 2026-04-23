@@ -82,7 +82,7 @@ window.melonFormatTime = function(dateStr) {
 };
 
 window.melonEmojiMap = {
-  '讨论': '💬', 'help': '❓', '教程': '📖', '教程': '📖', '公告': '📢', 'bug': '🐛',
+  '讨论': '💬', 'help': '❓', '教程': '📖', '公告': '📢', 'bug': '🐛',
   'feature': '✨', 'general': '💬', 'feedback': '💭', 'introduction': '👋',
   'off-topic': '☕', 'support': '🛠️', 'development': '💻', 'news': '📰',
   'resources': '📚', 'showcase': '🎨', 'discussion': '💬', 'question': '❓',

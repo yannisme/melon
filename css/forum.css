@@ -44,6 +44,19 @@ html.melon-cards--active .IndexPage .LoadingIndicator {
     display: none !important;
 }
 
+/* Hide Flarum global loading/error alerts on melon homepage */
+html.melon-cards--active .App-content > .LoadingIndicator,
+html.melon-cards--active .App-content > .Alert,
+html.melon-cards--active .App-content > .ErrorAlert,
+html.melon-cards--active .App-content > .flarum-loading,
+html.melon-cards--active .App-content > .flarum-loading-error,
+html.melon-cards--active .IndexPage > .container > .LoadingIndicator,
+html.melon-cards--active .IndexPage > .container > .Alert,
+html.melon-cards--active .IndexPage > .container > .flarum-loading,
+html.melon-cards--active .IndexPage > .container > .flarum-loading-error {
+    display: none !important;
+}
+
 /* Nuclear option: hide everything inside IndexPage that's not melon-homepage */
 html.melon-cards--active .IndexPage > .container > :not(.melon-homepage),
 html.melon-cards--active .IndexPage > :not(.container):not(.melon-homepage) {
