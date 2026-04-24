@@ -483,8 +483,8 @@ app.initializers.add('yannisme/melon', () => {
       '每页显示条数': 'homepage_disc_per_page',
       'Show All Categories': 'homepage_show_all_categories',
       '显示全部分类': 'homepage_show_all_categories',
-      'Featured Tag IDs': 'homepage_featured_tags',
-      '首页展示标签 ID': 'homepage_featured_tags',
+      'Featured Tags': 'homepage_featured_tags',
+      '首页展示标签': 'homepage_featured_tags',
       'Custom Link URL': 'homepage_custom_link_url',
       '自定义链接 URL': 'homepage_custom_link_url',
       'Custom Link Text': 'homepage_custom_link_text',
@@ -831,6 +831,206 @@ app.initializers.add('yannisme/melon', () => {
   // Run after Mithril renders
   setTimeout(applyCollapsible, 500);
   setTimeout(applyCollapsible, 1500);
+
+  // Tag picker for homepage_featured_tags: replace text input with a button + modal
+  setTimeout(initTagPicker, 800);
+
+  function initTagPicker() {
+    // Find the input for homepage_featured_tags
+    const allLabels = document.querySelectorAll('label');
+    let targetInput: HTMLInputElement | null = null;
+    let targetWrapper: Element | null = null;
+    allLabels.forEach((label: Element) => {
+      const text = (label.textContent || '').trim();
+      if (text.indexOf('Featured Tag IDs') !== -1 || text.indexOf('首页展示标签') !== -1 ||
+          text.indexOf('yannisme-melon.admin.settings.homepage_featured_tags') !== -1) {
+        const wrapper = label.closest('.Form-group') || label.parentElement?.parentElement || label.parentElement;
+        if (wrapper) {
+          targetInput = wrapper.querySelector('input[type="text"]') as HTMLInputElement;
+          targetWrapper = wrapper;
+        }
+      }
+    });
+    if (!targetInput || !targetWrapper) return;
+
+    // Hide original input
+    targetInput.style.display = 'none';
+
+    // Create tag picker button
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'melon-tag-picker-btn';
+    btn.textContent = '🏷️ ' + (app.translator.trans('yannisme-melon.admin.settings.select_tags_btn') || 'Select Tags');
+    btn.style.cssText = 'padding:6px 14px;border:1px solid var(--control-bg,#e2e8f0);border-radius:6px;font-size:13px;cursor:pointer;background:var(--melon-admin-input-bg,#fff);color:var(--melon-admin-text,#334155);transition:all .15s ease';
+    btn.addEventListener('mouseenter', () => { btn.style.borderColor = '#4ade80'; btn.style.background = '#f0fdf4'; });
+    btn.addEventListener('mouseleave', () => { btn.style.borderColor = 'var(--control-bg,#e2e8f0)'; btn.style.background = 'var(--melon-admin-input-bg,#fff)'; });
+    targetWrapper.appendChild(btn);
+
+    // Show current selection count
+    const countSpan = document.createElement('span');
+    countSpan.className = 'melon-tag-picker-count';
+    countSpan.style.cssText = 'margin-left:8px;font-size:12px;color:var(--melon-admin-muted,#94a3b8)';
+    updateCount();
+    targetWrapper.appendChild(countSpan);
+
+    function updateCount() {
+      const val = targetInput!.value.trim();
+      if (val) {
+        const ids = val.split(',').filter(Boolean);
+        countSpan.textContent = `(${ids.length} selected)`;
+      } else {
+        countSpan.textContent = '';
+      }
+    }
+
+    // Click handler: fetch tags and show modal
+    btn.addEventListener('click', async () => {
+      btn.disabled = true;
+      btn.textContent = '...';
+
+      // Fetch all tags from API
+      let tags: any[] = [];
+      try {
+        const storeTags = app.store.all('tags');
+        if (storeTags && storeTags.length > 0) {
+          storeTags.forEach((model: any) => {
+            const t = model.data || model;
+            if (t && t.attributes && t.attributes.slug !== 'untagged') {
+              tags.push(t);
+            }
+          });
+        }
+        // If store is empty, fetch from API
+        if (tags.length === 0) {
+          const resp = await fetch('/api/tags');
+          const data = await resp.json();
+          if (data && data.data) {
+            tags = data.data.filter((t: any) => t.attributes && t.attributes.slug !== 'untagged');
+          }
+        }
+      } catch (e) {
+        console.error('[melon] Failed to fetch tags:', e);
+      }
+
+      btn.disabled = false;
+      btn.textContent = '🏷️ ' + (app.translator.trans('yannisme-melon.admin.settings.select_tags_btn') || 'Select Tags');
+
+      if (tags.length === 0) return;
+
+      // Sort: primary first, then secondary, then children
+      const primary = tags.filter((t: any) => !t.attributes.isChild && t.attributes.position !== null)
+        .sort((a: any, b: any) => (a.attributes.position || 0) - (b.attributes.position || 0));
+      const secondary = tags.filter((t: any) => !t.attributes.isChild && t.attributes.position === null);
+      const children = tags.filter((t: any) => t.attributes.isChild);
+
+      // Get currently selected IDs
+      const currentIds = new Set(
+        targetInput!.value.split(',').map((s: string) => s.trim()).filter(Boolean)
+      );
+
+      // Build modal
+      const overlay = document.createElement('div');
+      overlay.className = 'melon-tag-picker-overlay';
+      overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:10000;display:flex;align-items:center;justify-content:center';
+
+      const modal = document.createElement('div');
+      modal.className = 'melon-tag-picker-modal';
+      modal.style.cssText = 'background:var(--melon-admin-bg,#fff);border-radius:12px;width:420px;max-height:70vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.2)';
+
+      // Header
+      const header = document.createElement('div');
+      header.style.cssText = 'padding:16px 20px;border-bottom:1px solid var(--control-bg,#e2e8f0);display:flex;align-items:center;justify-content:space-between';
+      header.innerHTML = '<span style="font-size:15px;font-weight:600;color:var(--melon-admin-text,#1e293b)">' +
+        (app.translator.trans('yannisme-melon.admin.settings.select_tags_title') || 'Select Tags') + '</span>' +
+        '<span class="melon-tag-picker-close" style="cursor:pointer;font-size:20px;color:var(--melon-admin-muted,#94a3b8);padding:4px 8px">&times;</span>';
+      modal.appendChild(header);
+
+      // Body (scrollable)
+      const body = document.createElement('div');
+      body.style.cssText = 'padding:12px 20px;overflow-y:auto;flex:1';
+
+      function renderTagOption(tag: any, indent: boolean) {
+        const id = tag.id || tag.attributes?.id;
+        const name = tag.attributes?.name || '';
+        const color = tag.attributes?.color || '#999';
+        const slug = tag.attributes?.slug || '';
+        const checked = currentIds.has(String(id)) ? 'checked' : '';
+        const label = document.createElement('label');
+        label.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer' + (indent ? ';padding-left:24px' : '');
+        label.innerHTML = '<input type="checkbox" value="' + id + '" ' + checked + ' style="accent-color:#4ade80;width:16px;height:16px;cursor:pointer">' +
+          '<span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:' + color + ';flex-shrink:0"></span>' +
+          '<span style="font-size:13px;color:var(--melon-admin-text,#334155)">' + name + '</span>';
+        // Limit max 4 selections
+        const cb = label.querySelector('input') as HTMLInputElement;
+        cb.addEventListener('change', () => {
+          if (cb.checked) {
+            const checkedCount = body.querySelectorAll('input[type="checkbox"]:checked').length;
+            if (checkedCount > 4) {
+              cb.checked = false;
+              countSpan.textContent = '(max 4)';
+              setTimeout(() => { countSpan.textContent = ''; }, 1500);
+            }
+          }
+        });
+        body.appendChild(label);
+      }
+
+      // Render primary tags with their children
+      primary.forEach((tag: any) => {
+        renderTagOption(tag, false);
+        const parentId = tag.id || tag.attributes?.id;
+        children.forEach((child: any) => {
+          const parent = child.relationships?.parent?.data;
+          if (parent && parent.id === String(parentId)) {
+            renderTagOption(child, true);
+          }
+        });
+      });
+
+      // Separator if both primary and secondary exist
+      if (primary.length > 0 && secondary.length > 0) {
+        const sep = document.createElement('div');
+        sep.style.cssText = 'height:1px;background:var(--control-bg,#e2e8f0);margin:8px 0';
+        body.appendChild(sep);
+      }
+
+      // Render secondary tags
+      secondary.forEach((tag: any) => {
+        renderTagOption(tag, false);
+      });
+
+      modal.appendChild(body);
+
+      // Footer
+      const footer = document.createElement('div');
+      footer.style.cssText = 'padding:12px 20px;border-top:1px solid var(--control-bg,#e2e8f0);display:flex;justify-content:flex-end;gap:8px';
+      footer.innerHTML = '<button class="melon-tag-picker-cancel" style="padding:6px 16px;border:1px solid var(--control-bg,#e2e8f0);border-radius:6px;font-size:13px;cursor:pointer;background:var(--melon-admin-bg,#fff);color:var(--melon-admin-text,#334155)">' +
+        (app.translator.trans('yannisme-melon.admin.settings.cancel') || 'Cancel') + '</button>' +
+        '<button class="melon-tag-picker-save" style="padding:6px 16px;border:none;border-radius:6px;font-size:13px;cursor:pointer;background:#4ade80;color:#fff;font-weight:600">' +
+        (app.translator.trans('yannisme-melon.admin.settings.save') || 'Save') + '</button>';
+      modal.appendChild(footer);
+
+      overlay.appendChild(modal);
+      document.body.appendChild(overlay);
+
+      // Close handlers
+      const close = () => { document.body.removeChild(overlay); };
+      (header.querySelector('.melon-tag-picker-close') as HTMLElement).addEventListener('click', close);
+      overlay.addEventListener('click', (e: Event) => { if (e.target === overlay) close(); });
+      (footer.querySelector('.melon-tag-picker-cancel') as HTMLElement).addEventListener('click', close);
+
+      // Save handler
+      (footer.querySelector('.melon-tag-picker-save') as HTMLElement).addEventListener('click', () => {
+        const checked = body.querySelectorAll('input[type="checkbox"]:checked');
+        const ids = Array.from(checked).map((cb: any) => cb.value);
+        targetInput!.value = ids.join(',');
+        // Trigger change event so Flarum saves the setting
+        targetInput!.dispatchEvent(new Event('change', { bubbles: true }));
+        updateCount();
+        close();
+      });
+    });
+  }
 
   // Watch for SPA navigation: re-apply when Mithril re-renders the settings page
   const container = document.querySelector('.AdminContent, .container, #app, main') || document.body;
