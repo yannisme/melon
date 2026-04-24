@@ -1573,8 +1573,22 @@ html.melon-cards--active .IndexPage > :not(.container):not(.melon-homepage) {
 }
 
 .melon-td-item-tag {
-    font-size: 11px;
+    display: inline-block;
+    padding: 1px 7px;
+    border-radius: var(--melon-disc-tag-radius, 4px);
+    font-size: var(--melon-disc-tag-size, 11px);
     font-weight: 500;
+    line-height: 1.6;
+    white-space: nowrap;
+    text-decoration: none !important;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: all 0.2s ease;
+}
+
+.melon-td-item-tag:hover {
+    border-color: var(--melon-primary, #4ade80);
+    opacity: 0.85;
 }
 
 .melon-td-item-stat {

@@ -219,14 +219,14 @@ app.initializers.add('yannisme-melon-tags', function(app) {
 
     // ── Page Header ──
     html += '<div class="melon-tags-header">';
-    html += '  <h1 class="melon-tags-title">Tags</h1>';
+    html += '  <h1 class="melon-tags-title">' + melonT('tags_title') + '</h1>';
     html += '  <p class="melon-tags-subtitle">' + melonT('tags_subtitle') + '</p>';
     html += '</div>';
 
     // ── Primary Tags Grid ──
     if (primaryTags.length > 0) {
       html += '<div class="melon-tags-section">';
-      html += '  <h2 class="melon-tags-section-title">Primary Tags</h2>';
+      html += '  <h2 class="melon-tags-section-title">' + melonT('primary_tags') + '</h2>';
       html += '  <div class="melon-tags-grid">';
 
       primaryTags.forEach(function(tag) {
@@ -244,7 +244,7 @@ app.initializers.add('yannisme-melon-tags', function(app) {
         if (tagIcon) {
           iconHtml = '<i class="' + melonEsc(tagIcon) + '"></i>';
         } else {
-          var emoji = window.melonEmojiMap[slug.toLowerCase()] || window.melonEmojiMap[name.toLowerCase()] || '🏷️';
+          var emoji = window.melonEmojiMap[slug.toLowerCase()] || window.melonEmojiMap[name.toLowerCase()] || '';
           iconHtml = emoji;
         }
 
@@ -271,7 +271,7 @@ app.initializers.add('yannisme-melon-tags', function(app) {
             var cSlug = child.attributes.slug || '';
             var cColor = child.attributes.color || color;
             var cIcon = child.attributes.icon || '';
-            var cEmoji = window.melonEmojiMap[cSlug.toLowerCase()] || window.melonEmojiMap[cName.toLowerCase()] || '🏷️';
+            var cEmoji = window.melonEmojiMap[cSlug.toLowerCase()] || window.melonEmojiMap[cName.toLowerCase()] || '';
             var cCount = child.attributes.discussionCount || 0;
             if (cIcon) {
               html += '<a href="/t/' + cSlug + '" class="melon-tag-child"><i class="' + melonEsc(cIcon) + '"></i> ' + melonEsc(cName) + ' <span class="melon-tag-child-count">' + cCount + '</span></a>';
@@ -304,7 +304,7 @@ app.initializers.add('yannisme-melon-tags', function(app) {
     // ── Secondary Tags ──
     if (secondaryTags.length > 0) {
       html += '<div class="melon-tags-section">';
-      html += '  <h2 class="melon-tags-section-title">Secondary Tags</h2>';
+      html += '  <h2 class="melon-tags-section-title">' + melonT('secondary_tags') + '</h2>';
       html += '  <div class="melon-tags-secondary-grid">';
 
       secondaryTags.forEach(function(tag) {
@@ -318,7 +318,7 @@ app.initializers.add('yannisme-melon-tags', function(app) {
         if (tagIcon) {
           iconHtml = '<i class="' + melonEsc(tagIcon) + '"></i>';
         } else {
-          var emoji = window.melonEmojiMap[slug.toLowerCase()] || window.melonEmojiMap[name.toLowerCase()] || '🏷️';
+          var emoji = window.melonEmojiMap[slug.toLowerCase()] || window.melonEmojiMap[name.toLowerCase()] || '';
           iconHtml = emoji;
         }
 

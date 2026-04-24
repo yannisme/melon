@@ -395,7 +395,7 @@ app.initializers.add('yannisme-melon-tag-discussions', function(app) {
       html += '    <span class="melon-td-item-time">' + melonFormatTime(createdAt) + '</span>';
       if (discTags.length > 0) {
         discTags.forEach(function(dt) {
-          html += '    <a href="/t/' + dt.slug + '" class="melon-td-item-tag" style="color:' + (dt.color || tagColor) + '" onclick="event.stopPropagation()">' + melonEsc(dt.name) + '</a>';
+          html += '    <a href="/t/' + dt.slug + '" class="melon-td-item-tag" style="color:' + (dt.color || tagColor) + ';background:' + (dt.color || tagColor) + '18" onclick="event.stopPropagation()">' + melonEsc(dt.name) + '</a>';
         });
       }
       if (replyCount > 0 && document.documentElement.classList.contains('melon-tag-disc-replies--active')) {

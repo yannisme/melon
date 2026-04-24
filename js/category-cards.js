@@ -1800,12 +1800,32 @@ app.initializers.add('yannisme-melon-category-cards', function(app) {
   var _discPostPollTimer = null;
   var _discPostStyleRAF = null;  // requestAnimationFrame ID for debouncing
   var _discEvents = [];  // Collected events (module-level, survives Mithril redraws)
+  var _discLastPostCount = 0;  // Track post count to detect new/removed posts
 
   function discStylePosts(page, targetItems) {
     try {
     // Add floor numbers to all visible posts using Flarum's post number attribute
     // Also handle EventPosts (hide them and collect for sidebar)
     var allItems = targetItems || page.querySelectorAll('.PostStream-item');
+
+    // Detect if post count changed (new posts loaded, or posts removed)
+    var visibleCommentCount = 0;
+    allItems.forEach(function(item) {
+      if (item.style.display === 'none') return;
+      if (item.querySelector('.ReplyPlaceholder, .Composer')) return;
+      if (item.querySelector('.EventPost')) return;
+      visibleCommentCount++;
+    });
+    var postCountChanged = (visibleCommentCount !== _discLastPostCount);
+    _discLastPostCount = visibleCommentCount;
+
+    // If post count changed, clear all floor data to force recalculation
+    if (postCountChanged) {
+      allItems.forEach(function(item) {
+        item.removeAttribute('data-melon-floor');
+      });
+    }
+
     var newEvents = [];
     allItems.forEach(function(item) {
       // Skip hidden items
@@ -1861,12 +1881,17 @@ app.initializers.add('yannisme-melon-category-cards', function(app) {
       }
 
       // Regular CommentPost processing
-      // ALWAYS re-check if styling is intact. Mithril redraws can rebuild
-      // inner DOM while keeping the outer .PostStream-item, so we must
-      // verify our modifications are still present.
-      var hasFloorNum = item.querySelector('.melon-disc-floor-num');
-      var hasAvatarInHeader = item.querySelector('.melon-disc-in-header');
-      var needsReStyle = !hasFloorNum || !hasAvatarInHeader;
+      // Quick skip: if already styled and all modifications are intact, skip.
+      var currentFloor = item.getAttribute('data-melon-floor');
+      if (currentFloor) {
+        // Verify key styled elements are still present (Mithril may rebuild inner DOM)
+        var stillOk = item.querySelector('.melon-disc-floor-num')
+          && item.querySelector('.melon-disc-in-header')
+          && item.querySelector('.melon-disc-header-info');
+        if (stillOk) return;
+        // Modifications lost — clear and reprocess
+        item.removeAttribute('data-melon-floor');
+      }
 
       // Calculate visible floor index (only count CommentPosts, skip EventPosts)
       // This ensures events don't consume floor numbers
@@ -1882,11 +1907,11 @@ app.initializers.add('yannisme-melon-category-cards', function(app) {
       }
       if (floorIndex === 0) floorIndex = 1; // Safety fallback
 
+      // Skip if floor number hasn't changed (postCountChanged already cleared stale data)
+      if (currentFloor === String(floorIndex)) return;
+
       item.classList.add('melon-disc-styled');
       item.setAttribute('data-melon-floor', String(floorIndex));
-
-      // Skip if all our modifications are still present
-      if (!needsReStyle) return;
 
       // Clean up any partial old modifications before re-styling
       var oldFloorNum = item.querySelector('.melon-disc-floor-num');
@@ -1921,10 +1946,17 @@ app.initializers.add('yannisme-melon-category-cards', function(app) {
         // Read custom labels, colors and icons from admin settings
         var label = '', floorColor = '', floorIcon = '';
         try {
-          var settings = app.data.settings || {};
-          label = settings['melon.disc_floor_label_' + floorIndex] || '';
-          floorColor = settings['melon.disc_floor_color_' + floorIndex] || '';
-          floorIcon = settings['melon.disc_floor_icon_' + floorIndex] || '';
+          // serializeToForum stores settings as camelCase keys in app.forum.attribute()
+          var getSetting = function(dbKey) {
+            // Convert melon.xxx_yyy to melonXxxYyy (e.g. melon.disc_floor_label_1 → melonDiscFloorLabel1)
+            var jsKey = 'melon' + dbKey.replace(/^melon\./, '').split('_').map(function(s) {
+              return s.charAt(0).toUpperCase() + s.slice(1);
+            }).join('');
+            return (app.forum && app.forum.attribute(jsKey)) || (app.data.settings && app.data.settings[dbKey]) || '';
+          };
+          label = getSetting('melon.disc_floor_label_' + floorIndex);
+          floorColor = getSetting('melon.disc_floor_color_' + floorIndex);
+          floorIcon = getSetting('melon.disc_floor_icon_' + floorIndex);
         } catch(e) {}
         // Build floor label content
         var floorContent = '';
@@ -2111,70 +2143,57 @@ app.initializers.add('yannisme-melon-category-cards', function(app) {
       _discPostStyleRAF = null;
     }
 
-    // Helper: schedule styling with debouncing (wait for Mithril redraw to settle)
-    // Use double RAF to ensure we run AFTER Mithril's redraw completes
-    function scheduleStyle() {
-      if (_discPostStyleRAF) cancelAnimationFrame(_discPostStyleRAF);
-      _discPostStyleRAF = requestAnimationFrame(function() {
-        _discPostStyleRAF = requestAnimationFrame(function() {
-          _discPostStyleRAF = null;
-          var currentPage = document.querySelector('.DiscussionPage');
-          if (currentPage) {
-            discStylePosts(currentPage);
-          }
-        });
-      });
-    }
-
-    // Style any unstyled posts that exist right now (safety net)
+    // Style any unstyled posts that exist right now
     discStylePosts(page);
 
-    // MutationObserver: watch for DOM changes that may add/replace posts.
-    // IMPORTANT: We observe .App-content (or body) because Flarum/Mithril may
-    // replace the entire .DiscussionPage element during lazy-load redraws.
-    var appContent = document.querySelector('.App-content') || document.body;
-    _discPostObserver = new MutationObserver(function(mutations) {
-      // Use debouncing: wait for Mithril redraw to complete before styling
-      scheduleStyle();
-    });
-    // Observe .App-content for subtree changes (catches everything including
-    // .DiscussionPage replacement, .PostStream rebuilds, etc.)
-    _discPostObserver.observe(appContent, { childList: true, subtree: true });
+    // MutationObserver: watch only for new posts added to PostStream.
+    var stream = page.querySelector('.PostStream');
+    if (stream) {
+      _discPostObserver = new MutationObserver(function(mutations) {
+        var hasNewContent = mutations.some(function(m) {
+          return m.addedNodes.length > 0 || m.removedNodes.length > 0;
+        });
+        if (hasNewContent) startTempPoll();
+      });
+      _discPostObserver.observe(stream, { childList: true });
+    }
 
-    // Polling fallback: every 300ms, check for any unstyled posts.
-    // IMPORTANT: Always re-query current DOM elements.
-    // NOTE: Do NOT check for .melon-disc-active class here, because Mithril
-    // redraws can strip it from .DiscussionPage. Instead, check the URL path.
-    _discPostPollTimer = setInterval(function() {
-      // Stop if we navigated away from any discussion page
-      if (!window.location.pathname.match(/^\/d\/\d+/)) {
-        if (_discPostPollTimer) { clearInterval(_discPostPollTimer); _discPostPollTimer = null; }
-        return;
+    // Temporary polling: runs for ~3 seconds after trigger, then stops.
+    // This handles the delay between new DOM nodes appearing and Mithril
+    // fully rendering their content (avatars, headers, etc.).
+    var _tempPollCount = 0;
+    var _tempPollMax = 10; // 10 × 300ms = 3 seconds
+    function startTempPoll() {
+      if (_discPostPollTimer) return; // Already running
+      _tempPollCount = 0;
+      _discPostPollTimer = setInterval(function() {
+        _tempPollCount++;
+        if (!window.location.pathname.match(/^\/d\/\d+/)) {
+          stopTempPoll();
+          return;
+        }
+        var currentPage = document.querySelector('.DiscussionPage');
+        if (!currentPage) return;
+        if (!currentPage.classList.contains('melon-disc-active')) {
+          currentPage.classList.add('melon-disc-active');
+        }
+        discStylePosts(currentPage);
+        if (_tempPollCount >= _tempPollMax) stopTempPoll();
+      }, 300);
+    }
+    function stopTempPoll() {
+      if (_discPostPollTimer) {
+        clearInterval(_discPostPollTimer);
+        _discPostPollTimer = null;
       }
-      var currentPage = document.querySelector('.DiscussionPage');
-      if (!currentPage) return;
-      // Re-add melon-disc-active if Mithril stripped it during redraw
-      if (!currentPage.classList.contains('melon-disc-active')) {
-        currentPage.classList.add('melon-disc-active');
-      }
-      discStylePosts(currentPage);
-    }, 300);
+    }
+
+    // Start initial temp poll to catch any late-rendering posts
+    startTempPoll();
 
     // Hook into network activity to re-apply styles after Flarum's lazy-load API calls.
     function onNetworkComplete() {
-      scheduleStyle();
-      setTimeout(function() {
-        var p = document.querySelector('.DiscussionPage');
-        if (p) discStylePosts(p);
-      }, 150);
-      setTimeout(function() {
-        var p = document.querySelector('.DiscussionPage');
-        if (p) discStylePosts(p);
-      }, 400);
-      setTimeout(function() {
-        var p = document.querySelector('.DiscussionPage');
-        if (p) discStylePosts(p);
-      }, 800);
+      startTempPoll();
     }
 
     // Hook fetch — only intercept API calls to /api/posts (lazy-load)

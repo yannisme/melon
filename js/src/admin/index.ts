@@ -313,7 +313,7 @@ app.initializers.add('yannisme/melon', () => {
       label: app.translator.trans('yannisme-melon.admin.settings.disc_floor_label_4_label'),
       help: app.translator.trans('yannisme-melon.admin.settings.disc_floor_label_4_help'),
       type: 'text',
-      placeholder: '#4',
+      placeholder: '4\u697C',
     }, -15.4)
     .registerSetting({
       setting: 'melon.disc_floor_color_4',

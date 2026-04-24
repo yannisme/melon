@@ -465,6 +465,8 @@ html.melon-disc-page--active .melon-disc-active .Page-container {
     text-align: center;
     user-select: none;
     cursor: default;
+    padding: 0 5px;
+    border-radius: 4px;
 }
 
 .melon-disc-floor-op {
