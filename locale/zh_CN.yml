@@ -20,6 +20,7 @@ yannisme-melon:
       card_style_shadow: "阴影"
       compact_mode_label: "紧凑模式"
       hide_sidebar_label: "隐藏侧边栏"
+      code_copy_button_label: "代码一键复制"
       avatar_size_label: "头像大小 (px)"
       category_cards_enabled_label: "启用首页新布局"
       category_cards_enabled_help: "在首页顶部显示分类卡片网格"

@@ -92,6 +92,11 @@ app.initializers.add('yannisme/melon', () => {
       label: app.translator.trans('yannisme-melon.admin.settings.hide_sidebar_label'),
       type: 'boolean',
     }, 280)
+    .registerSetting({
+      setting: 'melon.code_copy_button',
+      label: app.translator.trans('yannisme-melon.admin.settings.code_copy_button_label'),
+      type: 'boolean',
+    }, 279)
     // Page width settings (under Layout module)
     .registerSetting({
       setting: 'melon.homepage_width',
@@ -739,45 +744,45 @@ app.initializers.add('yannisme/melon', () => {
     });
   }
 
-  // Inject collapsible CSS (light + dark mode)
+  // Inject collapsible CSS — uses Flarum CSS variables for auto dark mode support
   const style = document.createElement('style');
   style.textContent = [
     // Wrapper
-    '.melon-collapsible-wrapper{margin-bottom:16px;border:1px solid var(--control-bg,#e2e8f0);border-radius:10px;overflow:hidden;background:var(--melon-admin-bg,#fff)}',
+    '.melon-collapsible-wrapper{margin-bottom:16px;border:1px solid var(--control-bg);border-radius:10px;overflow:hidden;background:var(--body-bg)}',
 
     // Header row: title ····· toggle
     '.melon-collapsible-header{display:flex;align-items:center;padding:12px 16px;cursor:pointer;user-select:none;transition:background .15s ease}',
-    '.melon-collapsible-header:hover{background:var(--melon-admin-hover,#f8fafc)}',
+    '.melon-collapsible-header:hover{background:var(--body-bg-shaded)}',
 
     // Title
-    '.melon-collapsible-title{font-size:14px;font-weight:600;color:var(--melon-admin-text,#1e293b);white-space:nowrap;flex-shrink:0}',
+    '.melon-collapsible-title{font-size:14px;font-weight:600;color:var(--heading-color);white-space:nowrap;flex-shrink:0}',
 
     // Dotted separator (flex-grow)
-    '.melon-collapsible-dots{flex:1;min-width:20px;margin:0 10px;border-bottom:2px dotted var(--melon-admin-border,#cbd5e1);align-self:center;height:0}',
+    '.melon-collapsible-dots{flex:1;min-width:20px;margin:0 10px;border-bottom:2px dotted var(--muted-color-light);align-self:center;height:0}',
 
     // Right side container
     '.melon-collapsible-right{display:flex;align-items:center;gap:10px;flex-shrink:0}',
 
     // Arrow
-    '.melon-collapsible-arrow{font-size:11px;color:var(--melon-admin-muted,#94a3b8);transition:transform .3s cubic-bezier(.4,0,.2,1);flex-shrink:0}',
+    '.melon-collapsible-arrow{font-size:11px;color:var(--muted-color);transition:transform .3s cubic-bezier(.4,0,.2,1);flex-shrink:0}',
     '.melon-collapsible-header.melon-collapsible-open .melon-collapsible-arrow{transform:rotate(180deg)}',
 
     // Description row
-    '.melon-collapsible-desc{padding:0 16px 8px;font-size:12px;color:var(--melon-admin-muted,#64748b);line-height:1.5}',
+    '.melon-collapsible-desc{padding:0 16px 8px;font-size:12px;color:var(--muted-color);line-height:1.5}',
 
     // Separator line
-    '.melon-collapsible-sep{height:1px;background:var(--melon-admin-border,#e2e8f0);margin:0 16px}',
+    '.melon-collapsible-sep{height:1px;background:var(--control-bg);margin:0 16px}',
 
     // Body
     '.melon-collapsible-body{max-height:0;overflow:hidden;transition:max-height .35s cubic-bezier(.4,0,.2,1);padding:0 16px}',
     '.melon-collapsible-body.melon-collapsible-open{max-height:2000px;transition:max-height .5s cubic-bezier(.4,0,.2,1);padding:12px 16px}',
 
     // Body inner form items - vertical layout: label, help, input stacked
-    '.melon-collapsible-body>.Form-group{display:flex;flex-direction:column;padding:12px 0;border-bottom:1px solid var(--melon-admin-sep,#f1f5f9);gap:4px}',
+    '.melon-collapsible-body>.Form-group{display:flex;flex-direction:column;padding:12px 0;border-bottom:1px solid var(--control-bg);gap:4px}',
     '.melon-collapsible-body>.Form-group:last-child{border-bottom:none;padding-bottom:0}',
     '.melon-collapsible-body>.Form-group:first-child{padding-top:0}',
-    '.melon-collapsible-body>.Form-group>label{font-size:13px;font-weight:600;color:var(--melon-admin-text,#1e293b);text-align:left}',
-    '.melon-collapsible-body>.Form-group .helpText{font-size:11px;color:var(--melon-admin-muted,#94a3b8);padding-left:0;text-align:left;margin:0}',
+    '.melon-collapsible-body>.Form-group>label{font-size:13px;font-weight:600;color:var(--heading-color);text-align:left}',
+    '.melon-collapsible-body>.Form-group .helpText{font-size:11px;color:var(--muted-color);padding-left:0;text-align:left;margin:0}',
 
     // Checkbox/switch items in body - label and switch on same row, helpText below
     '.melon-collapsible-body>.Form-group .Checkbox{margin:0}',
@@ -789,14 +794,14 @@ app.initializers.add('yannisme/melon', () => {
     // ColorInput: keep text input and color preview on same row
     '.melon-collapsible-body>.Form-group:has(input[type="color"]) .Form-group{flex-direction:row;align-items:center;gap:8px}',
     '.melon-collapsible-body>.Form-group:has(input[type="color"]) .ColorInput-preview{flex-shrink:0}',
-    '.melon-collapsible-body>.Form-group:has(input[type="color"]) input[type="text"]{flex:1;max-width:180px;padding:6px 10px;border:1px solid var(--control-bg,#e2e8f0);border-radius:6px;font-size:13px;box-sizing:border-box;background:var(--melon-admin-input-bg,#fff);color:var(--melon-admin-text,#334155)}',
-    '.melon-collapsible-body>.Form-group:has(input[type="color"]) input[type="color"]{width:36px;height:30px;padding:2px;border:1px solid var(--control-bg,#e2e8f0);border-radius:6px;cursor:pointer;flex-shrink:0}',
+    '.melon-collapsible-body>.Form-group:has(input[type="color"]) input[type="text"]{flex:1;max-width:180px;padding:6px 10px;border:1px solid var(--control-bg);border-radius:6px;font-size:13px;box-sizing:border-box;background:var(--control-bg);color:var(--text-color)}',
+    '.melon-collapsible-body>.Form-group:has(input[type="color"]) input[type="color"]{width:36px;height:30px;padding:2px;border:1px solid var(--control-bg);border-radius:6px;cursor:pointer;flex-shrink:0}',
 
     // Select dropdown in body
-    '.melon-collapsible-body>.Form-group select{width:100%;min-width:200px;padding:6px 10px;border:1px solid var(--control-bg,#e2e8f0);border-radius:6px;font-size:13px;background:var(--melon-admin-input-bg,#fff);color:var(--melon-admin-text,#334155);cursor:pointer;box-sizing:border-box}',
+    '.melon-collapsible-body>.Form-group select{width:100%;min-width:200px;padding:6px 10px;border:1px solid var(--control-bg);border-radius:6px;font-size:13px;background:var(--control-bg);color:var(--text-color);cursor:pointer;box-sizing:border-box}',
 
     // Number input in body
-    '.melon-collapsible-body>.Form-group input[type="number"]{width:100%;max-width:240px;padding:6px 10px;border:1px solid var(--control-bg,#e2e8f0);border-radius:6px;font-size:13px;box-sizing:border-box;background:var(--melon-admin-input-bg,#fff);color:var(--melon-admin-text,#334155)}',
+    '.melon-collapsible-body>.Form-group input[type="number"]{width:100%;max-width:240px;padding:6px 10px;border:1px solid var(--control-bg);border-radius:6px;font-size:13px;box-sizing:border-box;background:var(--control-bg);color:var(--text-color)}',
 
     // Hide original toggle row inside body
     '.melon-collapsible-hidden-toggle{display:none !important}',
@@ -804,27 +809,10 @@ app.initializers.add('yannisme/melon', () => {
     // Toggle switch
     '.melon-collapsible-toggle{position:relative;display:inline-block;width:36px;height:20px;flex-shrink:0;cursor:pointer}',
     '.melon-collapsible-toggle input{opacity:0;width:0;height:0;position:absolute}',
-    '.melon-collapsible-toggle-track{position:absolute;inset:0;background:var(--melon-admin-track,#cbd5e1);border-radius:20px;transition:background .25s ease}',
+    '.melon-collapsible-toggle-track{position:absolute;inset:0;background:var(--muted-color-light);border-radius:20px;transition:background .25s ease}',
     '.melon-collapsible-toggle input:checked+.melon-collapsible-toggle-track{background:#4ade80}',
     '.melon-collapsible-toggle-thumb{position:absolute;top:2px;left:2px;width:16px;height:16px;background:#fff;border-radius:50%;transition:transform .25s cubic-bezier(.4,0,.2,1);box-shadow:0 1px 3px rgba(0,0,0,.15)}',
     '.melon-collapsible-toggle input:checked+.melon-collapsible-toggle-track .melon-collapsible-toggle-thumb{transform:translateX(16px)}',
-
-    // Dark mode overrides
-    'html.dark .melon-collapsible-wrapper{background:#1e293b;border-color:#334155}',
-    'html.dark .melon-collapsible-header:hover{background:#334155}',
-    'html.dark .melon-collapsible-title{color:#e2e8f0}',
-    'html.dark .melon-collapsible-dots{border-color:#475569}',
-    'html.dark .melon-collapsible-arrow{color:#64748b}',
-    'html.dark .melon-collapsible-desc{color:#94a3b8}',
-    'html.dark .melon-collapsible-sep{background:#334155}',
-    'html.dark .melon-collapsible-body>.Form-group{border-color:#334155}',
-    'html.dark .melon-collapsible-body>.Form-group>label{color:#e2e8f0}',
-    'html.dark .melon-collapsible-body>.Form-group .helpText{color:#64748b}',
-    'html.dark .melon-collapsible-body>.Form-group:has(input[type="color"]) input[type="text"]{background:#0f172a;border-color:#475569;color:#e2e8f0}',
-    'html.dark .melon-collapsible-body>.Form-group:has(input[type="color"]) input[type="color"]{border-color:#475569}',
-    'html.dark .melon-collapsible-body>.Form-group select{background:#0f172a;border-color:#475569;color:#e2e8f0}',
-    'html.dark .melon-collapsible-body>.Form-group input[type="number"]{background:#0f172a;border-color:#475569;color:#e2e8f0}',
-    'html.dark .melon-collapsible-toggle-track{background:#475569}',
   ].join('');
   document.head.appendChild(style);
 

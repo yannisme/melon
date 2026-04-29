@@ -569,6 +569,15 @@ html.melon-disc-page--active .melon-disc-active .Page-container {
 }
 
 /* ── Post Body ── */
+/* Flarum 2.x may use .Formatted instead of .Post-body for rendered content */
+.melon-disc-active .Formatted {
+    padding: 16px;
+    font-size: 14px;
+    line-height: 1.7;
+    color: var(--text-color, #1a1a2e);
+    word-break: break-word;
+}
+
 .melon-disc-active .Post-body {
     padding: 16px;
     font-size: 14px;
@@ -596,14 +605,372 @@ html.melon-disc-page--active .melon-disc-active .Page-container {
     border-radius: 4px;
 }
 
-.melon-disc-active .Post-body blockquote {
-    border-left: 3px solid var(--control-bg, #d1d5db);
-    padding: 8px 12px;
-    margin: 8px 0;
-    color: var(--muted-color, #6b7280);
-    background: var(--control-bg, #f9fafb);
-    border-radius: 0 4px 4px 0;
+/* ── Markdown: Inline code ── */
+.melon-disc-active .Post-body code {
+    background: var(--control-bg, #f1f5f9);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: 'SF Mono', SFMono-Regular, ui-monospace, 'Cascadia Code', 'Segoe UI Mono', Menlo, Consolas, monospace;
+    font-size: 0.875em;
+    color: var(--text-color, #1a1a2e);
+    word-break: break-word;
 }
+
+/* ── Markdown: Code blocks ── */
+.melon-disc-active .Post-body pre {
+    background: var(--control-bg, #f1f5f9);
+    border-radius: 8px;
+    padding: 16px;
+    overflow: visible;
+    margin: 12px 0;
+    border: 1px solid var(--border-color, #e2e8f0);
+}
+
+.melon-disc-active .Post-body pre code {
+    background: transparent;
+    padding: 0;
+    border-radius: 0;
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--text-color, #1a1a2e);
+    display: block;
+    overflow-x: auto;
+}
+
+/* ── Markdown: Blockquote ── */
+.melon-disc-active .Post-body blockquote {
+    border-left: 4px solid var(--melon-primary, #4ade80);
+    padding: 12px 16px;
+    margin: 16px 0;
+    color: var(--muted-color, #6b7280);
+    background: var(--control-bg-light, #f9fafb);
+    border-radius: 0 8px 8px 0;
+    font-style: italic;
+}
+
+.melon-disc-active .Post-body blockquote p:last-child {
+    margin-bottom: 0;
+}
+
+.melon-disc-active .Post-body blockquote blockquote {
+    margin: 8px 0;
+    background: var(--body-bg, #fff);
+}
+
+/* ── Markdown: Tables ── */
+.melon-disc-active .Post-body table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    font-size: 14px;
+    overflow: hidden;
+    border-radius: 8px;
+    border: 1px solid var(--border-color, #e2e8f0);
+}
+
+.melon-disc-active .Post-body thead {
+    background: var(--control-bg, #f1f5f9);
+}
+
+.melon-disc-active .Post-body th {
+    padding: 10px 14px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--heading-color, #1a1a2e);
+    border-bottom: 2px solid var(--border-color, #e2e8f0);
+    white-space: nowrap;
+}
+
+.melon-disc-active .Post-body td {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border-color, #e2e8f0);
+    color: var(--text-color, #1a1a2e);
+    vertical-align: top;
+}
+
+.melon-disc-active .Post-body tr:last-child td {
+    border-bottom: none;
+}
+
+.melon-disc-active .Post-body tr:hover td {
+    background: var(--control-bg-light, #f9fafb);
+}
+
+/* ── Markdown: Headings ── */
+.melon-disc-active .Post-body h1 {
+    font-size: 1.5em;
+    font-weight: 700;
+    margin: 24px 0 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border-color, #e2e8f0);
+    color: var(--heading-color, #1a1a2e);
+}
+
+.melon-disc-active .Post-body h2 {
+    font-size: 1.35em;
+    font-weight: 700;
+    margin: 20px 0 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border-color, #e2e8f0);
+    color: var(--heading-color, #1a1a2e);
+}
+
+.melon-disc-active .Post-body h3 {
+    font-size: 1.2em;
+    font-weight: 600;
+    margin: 18px 0 8px;
+    color: var(--heading-color, #1a1a2e);
+}
+
+.melon-disc-active .Post-body h4,
+.melon-disc-active .Post-body h5,
+.melon-disc-active .Post-body h6 {
+    font-size: 1.05em;
+    font-weight: 600;
+    margin: 16px 0 6px;
+    color: var(--heading-color, #1a1a2e);
+}
+
+/* ── Markdown: Lists ── */
+.melon-disc-active .Post-body ul,
+.melon-disc-active .Post-body ol {
+    margin: 8px 0;
+    padding-left: 24px;
+}
+
+.melon-disc-active .Post-body ul {
+    list-style-type: disc;
+}
+
+.melon-disc-active .Post-body ol {
+    list-style-type: decimal;
+}
+
+.melon-disc-active .Post-body li {
+    margin: 4px 0;
+    line-height: 1.7;
+}
+
+.melon-disc-active .Post-body li > ul,
+.melon-disc-active .Post-body li > ol {
+    margin: 4px 0;
+}
+
+/* ── Markdown: Horizontal rule ── */
+.melon-disc-active .Post-body hr {
+    border: none;
+    height: 1px;
+    background: var(--border-color, #e2e8f0);
+    margin: 20px 0;
+}
+
+/* ── Markdown: Links ── */
+.melon-disc-active .Post-body a {
+    color: var(--melon-primary, #4ade80);
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+    transition: border-color 0.2s ease;
+}
+
+.melon-disc-active .Post-body a:hover {
+    border-bottom-color: var(--melon-primary, #4ade80);
+}
+
+/* ── Markdown: Images ── */
+.melon-disc-active .Post-body img {
+    max-width: 100%;
+    border-radius: 8px;
+    margin: 8px 0;
+}
+
+/* ── Markdown: Strong / Em ── */
+.melon-disc-active .Post-body strong {
+    font-weight: 600;
+    color: var(--heading-color, #1a1a2e);
+}
+
+.melon-disc-active .Post-body em {
+    font-style: italic;
+}
+
+/* ── Markdown Dark Mode ── */
+html.dark .melon-disc-active .Post-body code {
+    background: rgba(255,255,255,0.08);
+    color: var(--text-color, #e2e8f0);
+}
+
+html.dark .melon-disc-active .Post-body pre {
+    background: rgba(255,255,255,0.06);
+    border-color: rgba(255,255,255,0.1);
+}
+
+html.dark .melon-disc-active .Post-body pre code {
+    background: transparent;
+    color: var(--text-color, #e2e8f0);
+}
+
+html.dark .melon-disc-active .Post-body blockquote {
+    background: rgba(255,255,255,0.04);
+    color: var(--muted-color, #94a3b8);
+}
+
+html.dark .melon-disc-active .Post-body blockquote blockquote {
+    background: rgba(255,255,255,0.02);
+}
+
+html.dark .melon-disc-active .Post-body table {
+    border-color: rgba(255,255,255,0.1);
+}
+
+html.dark .melon-disc-active .Post-body thead {
+    background: rgba(255,255,255,0.06);
+}
+
+html.dark .melon-disc-active .Post-body th {
+    color: var(--heading-color, #e2e8f0);
+    border-bottom-color: rgba(255,255,255,0.1);
+}
+
+html.dark .melon-disc-active .Post-body td {
+    border-bottom-color: rgba(255,255,255,0.06);
+    color: var(--text-color, #e2e8f0);
+}
+
+html.dark .melon-disc-active .Post-body tr:hover td {
+    background: rgba(255,255,255,0.04);
+}
+
+html.dark .melon-disc-active .Post-body h1,
+html.dark .melon-disc-active .Post-body h2 {
+    border-bottom-color: rgba(255,255,255,0.1);
+    color: var(--heading-color, #e2e8f0);
+}
+
+html.dark .melon-disc-active .Post-body h3,
+html.dark .melon-disc-active .Post-body h4,
+html.dark .melon-disc-active .Post-body h5,
+html.dark .melon-disc-active .Post-body h6 {
+    color: var(--heading-color, #e2e8f0);
+}
+
+html.dark .melon-disc-active .Post-body hr {
+    background: rgba(255,255,255,0.1);
+}
+
+html.dark .melon-disc-active .Post-body strong {
+    color: var(--heading-color, #e2e8f0);
+}
+
+/* ── Markdown: .Formatted alias (Flarum 2.x compatibility) ── */
+/* Map all .Formatted children to use the same styles as .Post-body children */
+.melon-disc-active .Formatted code { background: var(--control-bg, #f1f5f9); padding: 2px 6px; border-radius: 4px; font-family: 'SF Mono', SFMono-Regular, ui-monospace, 'Cascadia Code', 'Segoe UI Mono', Menlo, Consolas, monospace; font-size: 0.875em; color: var(--text-color, #1a1a2e); word-break: break-word; }
+.melon-disc-active .Formatted pre { background: var(--control-bg, #f1f5f9); border-radius: 8px; padding: 16px; overflow: visible; margin: 12px 0; border: 1px solid var(--border-color, #e2e8f0); }
+.melon-disc-active .Formatted pre code { background: transparent; padding: 0; border-radius: 0; font-size: 13px; line-height: 1.6; color: var(--text-color, #1a1a2e); display: block; overflow-x: auto; }
+.melon-disc-active .Formatted blockquote { border-left: 4px solid var(--melon-primary, #4ade80); padding: 12px 16px; margin: 16px 0; color: var(--muted-color, #6b7280); background: var(--control-bg-light, #f9fafb); border-radius: 0 8px 8px 0; font-style: italic; }
+.melon-disc-active .Formatted blockquote p:last-child { margin-bottom: 0; }
+.melon-disc-active .Formatted blockquote blockquote { margin: 8px 0; background: var(--body-bg, #fff); }
+.melon-disc-active .Formatted table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px; overflow: hidden; border-radius: 8px; border: 1px solid var(--border-color, #e2e8f0); display: table; }
+.melon-disc-active .Formatted thead { background: var(--control-bg, #f1f5f9); display: table-header-group; }
+.melon-disc-active .Formatted th { padding: 10px 14px; text-align: left; font-weight: 600; font-size: 13px; color: var(--heading-color, #1a1a2e); border-bottom: 2px solid var(--border-color, #e2e8f0); white-space: nowrap; }
+.melon-disc-active .Formatted td { padding: 10px 14px; border-bottom: 1px solid var(--border-color, #e2e8f0); color: var(--text-color, #1a1a2e); vertical-align: top; }
+.melon-disc-active .Formatted tr:last-child td { border-bottom: none; }
+.melon-disc-active .Formatted tr:hover td { background: var(--control-bg-light, #f9fafb); }
+.melon-disc-active .Formatted h1 { font-size: 1.5em; font-weight: 700; margin: 24px 0 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border-color, #e2e8f0); color: var(--heading-color, #1a1a2e); }
+.melon-disc-active .Formatted h2 { font-size: 1.35em; font-weight: 700; margin: 20px 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border-color, #e2e8f0); color: var(--heading-color, #1a1a2e); }
+.melon-disc-active .Formatted h3 { font-size: 1.2em; font-weight: 600; margin: 18px 0 8px; color: var(--heading-color, #1a1a2e); }
+.melon-disc-active .Formatted h4, .melon-disc-active .Formatted h5, .melon-disc-active .Formatted h6 { font-size: 1.05em; font-weight: 600; margin: 16px 0 6px; color: var(--heading-color, #1a1a2e); }
+.melon-disc-active .Formatted ul, .melon-disc-active .Formatted ol { margin: 8px 0; padding-left: 24px; }
+.melon-disc-active .Formatted ul { list-style-type: disc; }
+.melon-disc-active .Formatted ol { list-style-type: decimal; }
+.melon-disc-active .Formatted li { margin: 4px 0; line-height: 1.7; }
+.melon-disc-active .Formatted li > ul, .melon-disc-active .Formatted li > ol { margin: 4px 0; }
+.melon-disc-active .Formatted hr { border: none; height: 1px; background: var(--border-color, #e2e8f0); margin: 20px 0; }
+.melon-disc-active .Formatted a { color: var(--melon-primary, #4ade80); text-decoration: none; border-bottom: 1px solid transparent; transition: border-color 0.2s ease; }
+.melon-disc-active .Formatted a:hover { border-bottom-color: var(--melon-primary, #4ade80); }
+.melon-disc-active .Formatted img { max-width: 100%; border-radius: 8px; margin: 8px 0; }
+.melon-disc-active .Formatted strong { font-weight: 600; color: var(--heading-color, #1a1a2e); }
+.melon-disc-active .Formatted em { font-style: italic; }
+.melon-disc-active .Formatted p { margin: 0 0 12px 0; }
+.melon-disc-active .Formatted p:last-child { margin-bottom: 0; }
+
+/* ── Code Block Copy Button ── */
+.melon-copy-btn {
+    position: absolute !important;
+    top: 6px !important;
+    right: 6px !important;
+    padding: 3px 10px !important;
+    font-size: 12px !important;
+    font-weight: 500 !important;
+    line-height: 1.5 !important;
+    color: var(--muted-color, #6b7280) !important;
+    background: var(--body-bg, #fff) !important;
+    border: 1px solid var(--border-color, #e2e8f0) !important;
+    border-radius: 6px !important;
+    cursor: pointer !important;
+    opacity: 0;
+    transition: opacity 0.2s ease, color 0.2s ease, background 0.2s ease !important;
+    z-index: 10 !important;
+    user-select: none !important;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.06) !important;
+    display: inline-block !important;
+    float: none !important;
+    margin: 0 !important;
+    width: auto !important;
+    height: auto !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+}
+pre:hover > .melon-copy-btn,
+pre > .melon-copy-btn:hover {
+    opacity: 1 !important;
+}
+@media (hover: none) {
+    .melon-copy-btn {
+        opacity: 0.7 !important;
+    }
+}
+.melon-copy-btn:hover {
+    color: var(--melon-primary, #4ade80) !important;
+    border-color: var(--melon-primary, #4ade80) !important;
+}
+.melon-copy-btn--done {
+    color: var(--melon-primary, #4ade80) !important;
+    border-color: var(--melon-primary, #4ade80) !important;
+    background: rgba(74, 222, 128, 0.08) !important;
+}
+
+/* Copy Button Dark Mode */
+html.dark .melon-copy-btn {
+    color: var(--muted-color, #94a3b8) !important;
+    background: rgba(255,255,255,0.06) !important;
+    border-color: rgba(255,255,255,0.12) !important;
+}
+html.dark .melon-copy-btn:hover {
+    color: var(--melon-primary, #4ade80) !important;
+    border-color: var(--melon-primary, #4ade80) !important;
+}
+html.dark .melon-copy-btn--done {
+    color: var(--melon-primary, #4ade80) !important;
+    border-color: var(--melon-primary, #4ade80) !important;
+    background: rgba(74, 222, 128, 0.1) !important;
+}
+
+/* .Formatted Dark Mode */
+html.dark .melon-disc-active .Formatted code { background: rgba(255,255,255,0.08); color: var(--text-color, #e2e8f0); }
+html.dark .melon-disc-active .Formatted pre { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.1); }
+html.dark .melon-disc-active .Formatted pre code { background: transparent; color: var(--text-color, #e2e8f0); }
+html.dark .melon-disc-active .Formatted blockquote { background: rgba(255,255,255,0.04); color: var(--muted-color, #94a3b8); }
+html.dark .melon-disc-active .Formatted blockquote blockquote { background: rgba(255,255,255,0.02); }
+html.dark .melon-disc-active .Formatted table { border-color: rgba(255,255,255,0.1); }
+html.dark .melon-disc-active .Formatted thead { background: rgba(255,255,255,0.06); }
+html.dark .melon-disc-active .Formatted th { color: var(--heading-color, #e2e8f0); border-bottom-color: rgba(255,255,255,0.1); }
+html.dark .melon-disc-active .Formatted td { border-bottom-color: rgba(255,255,255,0.06); color: var(--text-color, #e2e8f0); }
+html.dark .melon-disc-active .Formatted tr:hover td { background: rgba(255,255,255,0.04); }
+html.dark .melon-disc-active .Formatted h1, html.dark .melon-disc-active .Formatted h2 { border-bottom-color: rgba(255,255,255,0.1); color: var(--heading-color, #e2e8f0); }
+html.dark .melon-disc-active .Formatted h3, html.dark .melon-disc-active .Formatted h4, html.dark .melon-disc-active .Formatted h5, html.dark .melon-disc-active .Formatted h6 { color: var(--heading-color, #e2e8f0); }
+html.dark .melon-disc-active .Formatted hr { background: rgba(255,255,255,0.1); }
+html.dark .melon-disc-active .Formatted strong { color: var(--heading-color, #e2e8f0); }
 
 /* ── Post Actions ── */
 .melon-disc-active .Post-actions {

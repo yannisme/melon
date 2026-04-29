@@ -10,5 +10,7 @@ if (!config.entry || !config.entry.forum) {
 config.optimization = config.optimization || {};
 config.optimization.moduleIds = 'named';
 config.optimization.chunkIds = 'named';
+config.optimization.usedExports = false;
+config.optimization.sideEffects = true;
 
 module.exports = config;

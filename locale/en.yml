@@ -20,6 +20,7 @@ yannisme-melon:
       card_style_shadow: "Shadow"
       compact_mode_label: "Compact Mode"
       hide_sidebar_label: "Hide Sidebar"
+      code_copy_button_label: "Code Copy Button"
       avatar_size_label: "Avatar Size (px)"
       category_cards_enabled_label: "Enable Homepage Layout"
       category_cards_enabled_help: "Show category card grid at the top of homepage"

@@ -3,6 +3,7 @@
 namespace Yannisme\Melon;
 
 use Flarum\Extend;
+use s9e\TextFormatter\Configurator;
 use Yannisme\Melon\Content\InjectModuleClasses;
 
 return [
@@ -16,6 +17,12 @@ return [
         ->css(__DIR__.'/css/discussion-page.css')
         ->js(__DIR__.'/js/dist/forum.js')
         ->content(InjectModuleClasses::class),
+
+    // Enable GFM pipe tables in markdown
+    (new Extend\Formatter)
+        ->configure(function (Configurator $config) {
+            $config->PipeTables;
+        }),
 
     // Load translations
     new Extend\Locales(__DIR__.'/locale'),
@@ -35,6 +42,7 @@ return [
         ->serializeToForum('melonCompactMode', 'melon.compact_mode', 'boolval')
         ->serializeToForum('melonCardStyle', 'melon.card_style')
         ->serializeToForum('melonHideSidebar', 'melon.hide_sidebar', 'boolval')
+        ->serializeToForum('melonCodeCopyButton', 'melon.code_copy_button', 'boolval')
         ->serializeToForum('melonAvatarSize', 'melon.avatar_size')
         ->serializeToForum('melonHomepageWidth', 'melon.homepage_width')
         ->serializeToForum('melonTagsPageWidth', 'melon.tags_page_width')
@@ -96,6 +104,7 @@ return [
         ->default('melon.compact_mode', false)
         ->default('melon.card_style', 'rounded')
         ->default('melon.hide_sidebar', false)
+        ->default('melon.code_copy_button', true)
         ->default('melon.avatar_size', '44')
         ->default('melon.homepage_width', '1200')
         ->default('melon.tags_page_width', '1200')

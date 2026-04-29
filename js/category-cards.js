@@ -2292,6 +2292,7 @@ app.initializers.add('yannisme-melon-category-cards', function(app) {
     melonRemoveAntiFlash();
   }, 800);
 
+
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
   } else {
