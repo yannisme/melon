@@ -3,11 +3,8 @@ import '../../category-cards';
 import '../../tags';
 import '../../tag-discussions';
 
-// ═══════════════════════════════════════════════════════════
-// Code block copy button — lightweight, no MutationObserver
-// ═══════════════════════════════════════════════════════════
+// Code block copy button
 (function initCopyButtons() {
-  // Extract pure code text, excluding <script> tags and copy buttons
   function getCodeText(block) {
     var code = block;
     if (block.tagName === 'PRE') {
@@ -19,25 +16,29 @@ import '../../tag-discussions';
   }
 
   function scan() {
-    // Check if copy button is enabled in settings
     try {
       if (app && app.data && app.data.settings && app.data.settings['melon.code_copy_button'] === '0') return;
     } catch(e) {}
     try {
       document.querySelectorAll('pre:not([data-mc]), code[data-highlighted]:not([data-mc])').forEach(function(block) {
-        if (block.querySelector('.melon-copy-btn')) return;
+        // Skip if already inside a melon-code-container
+        if (block.closest('.melon-code-container')) return;
+
         block.setAttribute('data-mc', '1');
 
-        var wrapper = block;
+        // For <code> without <pre> wrapper, wrap it first
         if (block.tagName === 'CODE' && (!block.parentElement || block.parentElement.tagName !== 'PRE')) {
-          wrapper = document.createElement('pre');
-          wrapper.style.cssText = 'position:relative;overflow:visible;background:var(--control-bg,#f1f5f9);border-radius:8px;padding:16px;border:1px solid var(--border-color,#e2e8f0);margin:12px 0;';
+          var wrapper = document.createElement('pre');
+          wrapper.style.cssText = 'overflow:hidden;background:var(--control-bg,#f1f5f9);border-radius:8px;padding:16px;border:1px solid var(--border-color,#e2e8f0);margin:12px 0;';
           block.parentNode.insertBefore(wrapper, block);
           wrapper.appendChild(block);
-        } else {
-          wrapper.style.position = 'relative';
-          wrapper.style.overflow = 'visible';
         }
+
+        // Create a container that wraps the code block + button
+        var container = document.createElement('div');
+        container.className = 'melon-code-container';
+        block.parentNode.insertBefore(container, block);
+        container.appendChild(block);
 
         var btn = document.createElement('button');
         btn.className = 'melon-copy-btn';
@@ -65,12 +66,11 @@ import '../../tag-discussions';
             ok();
           }
         };
-        wrapper.appendChild(btn);
+        container.appendChild(btn);
       });
     } catch(e) {}
   }
 
-  // Simple interval-based scanning: run 10 times over 5 seconds, then stop
   var count = 0;
   var timer = setInterval(function() {
     scan();
@@ -78,6 +78,5 @@ import '../../tag-discussions';
     if (count >= 10) clearInterval(timer);
   }, 500);
 
-  // Also scan on page navigation (Flarum SPA)
   window.addEventListener('popstate', function() { count = 0; timer = setInterval(function() { scan(); count++; if (count >= 10) clearInterval(timer); }, 500); });
 })();

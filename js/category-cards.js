@@ -467,7 +467,7 @@ app.initializers.add('yannisme-melon-category-cards', function(app) {
       }
     } catch(e) {}
 
-    // ── Hero Section ──
+    // Hero Section ──
     html += '<div class="melon-hero">';
     html += '  <div class="melon-hero-content">';
     html += '    <h1 class="melon-hero-title">' + melonEsc(welcomeTitle) + '</h1>';
@@ -480,7 +480,7 @@ app.initializers.add('yannisme-melon-category-cards', function(app) {
     html += '  </div>';
     html += '</div>';
 
-    // ── CTA Category Cards ──
+    // CTA Category Cards ──
     if (tags.length > 0) {
       // Read featured tags from settings
       var ctaTags = tags;
@@ -532,7 +532,7 @@ app.initializers.add('yannisme-melon-category-cards', function(app) {
       html += '</div>';
     }
 
-    // ── All Categories Grid ──
+    // All Categories Grid ──
     var showAllCats = false;
     try {
       var msGrid = window.__melon_settings || {};
@@ -561,10 +561,9 @@ app.initializers.add('yannisme-melon-category-cards', function(app) {
       html += '  </div></div>';
     }
 
-    // ── Recent Discussions ──
+    // Recent Discussions ──
     var allDiscs = discussions;
     var totalPages = 1;
-    var perPage = 10;
     if (discussions.length > 0) {
       // Read pagination settings
       var maxCount = 99;
@@ -612,7 +611,7 @@ app.initializers.add('yannisme-melon-category-cards', function(app) {
       html += '</div>'; // end melon-section
     }
 
-    // ── Stats Bar ──
+    // Stats Bar ──
     html += '<div class="melon-section">';
     html += '  <div class="melon-stats-bar">';
     html += '    <div class="melon-stats-item"><strong>' + tags.length + '</strong><span>' + melonT('categories_count', {count: tags.length}) + '</span></div>';
@@ -726,7 +725,7 @@ app.initializers.add('yannisme-melon-category-cards', function(app) {
     }
   }
 
-  // ── Global action functions (called from onclick) ──
+  // Global action functions (called from onclick) ──
 
   function getCsrfToken() {
     // Try Flarum's session first
@@ -1203,7 +1202,7 @@ app.initializers.add('yannisme-melon-category-cards', function(app) {
     });
   };
 
-  // ── Discussion Page: Timeline Layout ──
+  // Discussion Page: Timeline Layout ──
   var _discRendered = false;
   var _discLastId = '';  // Track discussion ID (not full path) to ignore scroll-spy hash changes
 
@@ -2147,7 +2146,6 @@ app.initializers.add('yannisme-melon-category-cards', function(app) {
     discStylePosts(page);
 
     // MutationObserver: watch only for new posts added to PostStream.
-    var stream = page.querySelector('.PostStream');
     if (stream) {
       _discPostObserver = new MutationObserver(function(mutations) {
         var hasNewContent = mutations.some(function(m) {
