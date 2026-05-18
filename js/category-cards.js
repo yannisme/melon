@@ -16,6 +16,10 @@ app.initializers.add('yannisme-melon-category-cards', function(app) {
         el.style.display = 'none';
       });
     });
+    // Also hide global flarum loading elements anywhere in the document
+    document.querySelectorAll('#flarum-loading, #flarum-loading-error').forEach(function(el) {
+      el.style.display = 'none';
+    });
   }
   function _startFlarumLoadingWatcher() {
     if (_flarumLoadingObserver) return;
