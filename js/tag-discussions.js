@@ -274,6 +274,15 @@ app.initializers.add('yannisme-melon-tag-discussions', function(app) {
       var links = data.links || {};
       hasMore = !!links.next;
 
+      // Sort discussions: sticky first, then by current sort order
+      discussions.sort(function(a, b) {
+        var aSticky = a.attributes.isSticky ? 1 : 0;
+        var bSticky = b.attributes.isSticky ? 1 : 0;
+        if (aSticky !== bSticky) return bSticky - aSticky;
+        // Keep original API order for non-sticky items
+        return 0;
+      });
+
       // Append discussions to list
       appendDiscussions(discussions, slug);
 

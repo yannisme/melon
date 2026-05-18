@@ -251,6 +251,7 @@ class InjectModuleClasses
                 'homepage_custom_link_text' => $this->settings->get('melon.homepage_custom_link_text', ''),
                 'homepage_show_all_categories' => $this->settings->get('melon.homepage_show_all_categories', ''),
                 'homepage_featured_tags' => $this->settings->get('melon.homepage_featured_tags', ''),
+                'home_author_mode' => $this->settings->get('melon.home_author_mode', '0'),
             ];
             $document->foot[] = '<script>window.__melon_settings=' . json_encode($melonSettings) . ';</script>';
         }

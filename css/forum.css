@@ -44,22 +44,27 @@ html.melon-cards--active .IndexPage .LoadingIndicator {
     display: none !important;
 }
 
-/* Hide Flarum global loading/error alerts on melon homepage */
+/* Hide Flarum global loading/error indicators on melon homepage, but keep email confirmation alerts */
 html.melon-cards--active .App-content > .LoadingIndicator,
-html.melon-cards--active .App-content > .Alert,
 html.melon-cards--active .App-content > .ErrorAlert,
 html.melon-cards--active .App-content > .flarum-loading,
 html.melon-cards--active .App-content > .flarum-loading-error,
 html.melon-cards--active .IndexPage > .container > .LoadingIndicator,
-html.melon-cards--active .IndexPage > .container > .Alert,
+html.melon-cards--active .IndexPage > .container > .ErrorAlert,
 html.melon-cards--active .IndexPage > .container > .flarum-loading,
 html.melon-cards--active .IndexPage > .container > .flarum-loading-error {
     display: none !important;
 }
 
-/* Nuclear option: hide everything inside IndexPage that's not melon-homepage */
-html.melon-cards--active .IndexPage > .container > :not(.melon-homepage),
-html.melon-cards--active .IndexPage > :not(.container):not(.melon-homepage) {
+/* Hide generic alerts without specific types, but keep emailConfirmation and other typed alerts */
+html.melon-cards--active .IndexPage > .container > .Alert:not([class*="--"]),
+html.melon-cards--active .App-content > .Alert:not([class*="--"]) {
+    display: none !important;
+}
+
+/* Nuclear option: hide everything inside IndexPage that's not melon-homepage, but keep typed alerts */
+html.melon-cards--active .IndexPage > .container > :not(.melon-homepage):not(.Alert),
+html.melon-cards--active .IndexPage > :not(.container):not(.melon-homepage):not(.Alert) {
     display: none !important;
 }
 
@@ -244,10 +249,37 @@ html.melon-cards--active .IndexPage > :not(.container):not(.melon-homepage) {
    ═══════════════════════════════════════════════════════════════ */
 
 /* Hide ALL default Flarum IndexPage content when melon-homepage is active.
-   melon-homepage is inside .App-content, so we match at that level. */
-.melon-cards--active .App-content:has(.melon-homepage) > .IndexPage > .container > :not(.melon-homepage),
-.melon-cards--active .App-content:has(.melon-homepage) > .container > :not(.melon-homepage) {
+   melon-homepage is inside .App-content, so we match at that level. Keep alerts visible. */
+.melon-cards--active .App-content:has(.melon-homepage) > .IndexPage > .container > :not(.melon-homepage):not(.Alert),
+.melon-cards--active .App-content:has(.melon-homepage) > .container > :not(.melon-homepage):not(.Alert) {
     display: none !important;
+}
+
+/* CRITICAL: Always show Alert components - they contain important user notifications like email confirmations */
+.melon-cards--active .App-content:has(.melon-homepage) .Alert,
+.melon-cards--active .App-content .Alert {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+/* Use flex layout on container to control element order - apply to both class names */
+.melon-cards--active .IndexPage > .container,
+html.melon-cards--active .IndexPage > .container {
+    display: flex !important;
+    flex-direction: column !important;
+}
+
+/* Alert should always be first in the flex order */
+.melon-cards--active .IndexPage > .container > .Alert,
+html.melon-cards--active .IndexPage > .container > .Alert {
+    order: -9999 !important;
+}
+
+/* melon-homepage comes after Alert */
+.melon-cards--active .IndexPage > .container > .melon-homepage,
+html.melon-cards--active .IndexPage > .container > .melon-homepage {
+    order: 1 !important;
 }
 
 /* Also hide the IndexPage sidebar/nav that sits outside .container */
@@ -648,11 +680,12 @@ html.melon-cards--active .IndexPage > :not(.container):not(.melon-homepage) {
 }
 
 .melon-disc-sticky {
-    background: var(--melon-primary, #4ade80)08;
+    background: rgba(74, 222, 128, 0.15) !important;
+    border-left: 3px solid var(--melon-primary, #4ade80);
 }
 
 .melon-disc-sticky:hover {
-    background: color-mix(in srgb, var(--melon-primary, #4ade80) 8%, var(--control-bg, #f9fafb));
+    background: rgba(74, 222, 128, 0.25) !important;
 }
 
 .melon-disc-locked {
@@ -745,6 +778,26 @@ html.melon-cards--active .IndexPage > :not(.container):not(.melon-homepage) {
 .melon-disc-author {
     color: var(--text-secondary-color, #4b5563) !important;
     font-weight: 500 !important;
+}
+
+.melon-disc-author i {
+    font-size: 10px !important;
+    margin-right: 2px;
+    color: var(--muted-color, #9ca3af) !important;
+}
+
+.melon-disc-last-poster {
+    color: var(--melon-primary, #4ade80) !important;
+    font-weight: 500 !important;
+}
+
+.melon-disc-last-poster i {
+    font-size: 10px !important;
+    margin-right: 2px;
+}
+
+.melon-disc-last-time {
+    color: var(--muted-color, #9ca3af) !important;
 }
 
 .melon-disc-time {

@@ -97,6 +97,17 @@ app.initializers.add('yannisme/melon', () => {
       label: app.translator.trans('yannisme-melon.admin.settings.code_copy_button_label'),
       type: 'boolean',
     }, 279)
+    .registerSetting({
+      setting: 'melon.home_author_mode',
+      label: app.translator.trans('yannisme-melon.admin.settings.home_author_mode_label'),
+      help: app.translator.trans('yannisme-melon.admin.settings.home_author_mode_help'),
+      type: 'select',
+      options: [
+        { value: '0', label: app.translator.trans('yannisme-melon.admin.settings.home_author_mode_default') },
+        { value: '1', label: app.translator.trans('yannisme-melon.admin.settings.home_author_mode_last_poster') },
+        { value: '2', label: app.translator.trans('yannisme-melon.admin.settings.home_author_mode_last_poster_time') },
+      ],
+    }, 278)
     // Page width settings (under Layout module)
     .registerSetting({
       setting: 'melon.homepage_width',

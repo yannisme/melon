@@ -6,12 +6,13 @@ app.initializers.add('yannisme-melon-category-cards', function(app) {
 
   // Continuously hide Flarum's loading/error indicators while melon homepage is active.
   // Uses MutationObserver to catch elements added after SPA navigation.
+  // IMPORTANT: Never hide Alert components - they contain important user notifications like email confirmations.
   var _flarumLoadingObserver = null;
   function _hideFlarumLoading() {
-    var selectors = '.LoadingIndicator, .Alert, .ErrorAlert, .flarum-loading, .flarum-loading-error';
     var containers = document.querySelectorAll('.App-content, .IndexPage > .container');
     containers.forEach(function(ct) {
-      ct.querySelectorAll(':scope > ' + selectors).forEach(function(el) {
+      // Only hide loading indicators - NEVER hide Alert components
+      ct.querySelectorAll(':scope > .LoadingIndicator, :scope > .ErrorAlert, :scope > .flarum-loading, :scope > .flarum-loading-error').forEach(function(el) {
         el.style.display = 'none';
       });
     });
@@ -255,8 +256,8 @@ app.initializers.add('yannisme-melon-category-cards', function(app) {
     if (window.app && app.store && app.store.find) {
       // Use Flarum's store.find to properly authenticate the request
       app.store.find('discussions', {
-        include: 'tags,user,firstPost,tags.parent',
-        sort: '-createdAt'
+        include: 'tags,user,firstPost,lastPostedUser,tags.parent',
+        sort: '-lastPostedAt'
       }).then(function() {
         renderDiscussionsFromStore(container, tags);
       }).catch(function(err) {
@@ -267,7 +268,7 @@ app.initializers.add('yannisme-melon-category-cards', function(app) {
       return;
     }
     // Fallback: raw fetch without auth
-    var apiUrl = '/api/discussions?include=tags,user,firstPost&sort=-createdAt';
+    var apiUrl = '/api/discussions?include=tags,user,firstPost,lastPostedUser,tags.parent&sort=-lastPostedAt';
     fetch(apiUrl, { credentials: 'same-origin' })
     .then(function(r) { return r.json(); })
     .then(function(data) {
@@ -276,7 +277,8 @@ app.initializers.add('yannisme-melon-category-cards', function(app) {
       if (window.app && app.store && app.store.pushPayload) {
         try { app.store.pushPayload(data); } catch(e) {}
       }
-      renderDiscussionsFromStore(container, tags);
+      // Render directly from fetched data (with proper sorting)
+      renderDiscussionsFromData(container, tags, data);
     })
     .catch(function(e) {
       console.warn('[Melon] API fetch failed, using store data:', e);
@@ -284,12 +286,68 @@ app.initializers.add('yannisme-melon-category-cards', function(app) {
     });
   }
 
+  // Render discussions directly from API response data (for fetch fallback)
+  function renderDiscussionsFromData(container, tags, data) {
+    var allTags = {};
+    tags.forEach(function(t) { allTags[t.id] = t; });
+    
+    var discussions = [];
+    var users = {};
+    var posts = {};
+    
+    // Process discussions from API response
+    if (data.data) {
+      data.data.forEach(function(d) {
+        if (!d || !d.attributes) return;
+        d.attributes.hiddenAt = window.melonIsDiscussionHidden(d) ? (d.attributes.hiddenAt || new Date().toISOString()) : null;
+        discussions.push(d);
+      });
+    }
+    
+    // Process included users and posts
+    if (data.included) {
+      data.included.forEach(function(item) {
+        if (item.type === 'users' && item.attributes) {
+          users[item.id] = item.attributes;
+        }
+        if (item.type === 'posts' && item.attributes) {
+          posts[item.id] = item.attributes;
+        }
+      });
+    }
+    
+    // Enrich discussions with user/post data
+    discussions.forEach(function(disc) {
+      if (disc.relationships && disc.relationships.firstPost && disc.relationships.firstPost.data) {
+        var fp = posts[disc.relationships.firstPost.data.id];
+        if (fp) disc._likesCount = fp.likesCount || 0;
+      }
+      if (disc.relationships && disc.relationships.user && disc.relationships.user.data) {
+        var u = users[disc.relationships.user.data.id];
+        if (u) disc._authorName = u.displayName || u.username;
+      }
+    });
+    
+    // Sort: sticky first, then by lastPostedAt
+    discussions.sort(function(a, b) {
+      var aSticky = a.attributes.isSticky ? 1 : 0;
+      var bSticky = b.attributes.isSticky ? 1 : 0;
+      if (aSticky !== bSticky) return bSticky - aSticky;
+      return new Date(b.attributes.lastPostedAt || 0) - new Date(a.attributes.lastPostedAt || 0);
+    });
+    
+    renderHomepage(container, tags, discussions, users, allTags);
+    hideDefaultIndexPage();
+    document.documentElement.classList.remove('melon-anti-flash');
+  }
+
   // Render a single discussion item HTML
   function renderDiscItem(disc, allTags, users) {
     var title = disc.attributes.title || '';
     var slug = disc.attributes.slug || '';
     var commentCount = disc.attributes.commentCount || 0;
-    var lastPostedAt = disc.attributes.lastPostedAt || disc.attributes.createdAt || '';
+    var createdAt = disc.attributes.createdAt || '';
+    var lastPostedAt = disc.attributes.lastPostedAt || '';
     var isSticky = disc.attributes.isSticky || false;
     var isLocked = disc.attributes.isLocked || false;
     // Flarum uses hidden_at field (not isHidden) to indicate soft-deleted discussions
@@ -311,8 +369,23 @@ app.initializers.add('yannisme-melon-category-cards', function(app) {
     var userId = disc.relationships.user ? disc.relationships.user.data.id : null;
     var user = userId ? users[userId] : null;
     var displayName = disc._authorName || (user ? (user.displayName || user.username) : melonT('anonymous'));
-    var timeStr = melonFormatTime(lastPostedAt);
+    var timeStr = melonFormatTime(createdAt);
     var likesCount = disc._likesCount || 0;
+
+    // Last poster info (only if has replies)
+    var lastUserId = disc.relationships && disc.relationships.lastPostedUser ? disc.relationships.lastPostedUser.data.id : null;
+    var lastUser = lastUserId ? users[lastUserId] : null;
+    var lastUserName = lastUser ? (lastUser.displayName || lastUser.username) : '';
+    var lastUserTime = lastPostedAt ? melonFormatTime(lastPostedAt) : '';
+    var hasReplies = commentCount > 0 && lastUserName;
+    // Get setting for author display mode: 0=default, 1=with last poster, 2=with last poster+time
+    var authorMode = 0;
+    try {
+      var ms = window.__melon_settings || {};
+      authorMode = parseInt(ms.home_author_mode || '0', 10) || 0;
+    } catch(e) {}
+    var showLastPoster = (authorMode === 1 || authorMode === 2) && hasReplies;
+    var showLastTime = authorMode === 2 && hasReplies;
 
     var itemClass = 'melon-disc-item';
     if (isSticky) itemClass += ' melon-disc-sticky';
@@ -333,9 +406,19 @@ app.initializers.add('yannisme-melon-category-cards', function(app) {
 
     // Row 2: Meta info + tags + actions all in one line
     h += '    <div class="melon-disc-meta">';
-    h += '      <span class="melon-disc-author">' + melonEsc(displayName) + '</span>';
+    // Always show author (original poster)
+    h += '      <span class="melon-disc-author"><i class="fas fa-pen"></i> ' + melonEsc(displayName) + '</span>';
     h += '      <span class="melon-disc-sep">·</span>';
     h += '      <span class="melon-disc-time">' + timeStr + '</span>';
+    // Show last poster if mode 1 or 2
+    if (showLastPoster && lastUserName) {
+      h += '      <span class="melon-disc-sep">·</span>';
+      h += '      <span class="melon-disc-last-poster"><i class="fas fa-reply"></i> ' + melonEsc(lastUserName) + '</span>';
+      if (showLastTime) {
+        h += '      <span class="melon-disc-sep">·</span>';
+        h += '      <span class="melon-disc-last-time">' + lastUserTime + '</span>';
+      }
+    }
     if (commentCount > 0) {
       h += '      <span class="melon-disc-sep">·</span>';
       h += '      <span class="melon-disc-replies"><i class="far fa-comment"></i> ' + commentCount + '</span>';
@@ -629,12 +712,154 @@ app.initializers.add('yannisme-melon-category-cards', function(app) {
       wrapper._paginationData = { allDiscs: allDiscs, perPage: perPage, totalPages: totalPages, currentPage: 1, allTags: allTags, users: users };
     }
 
-    // Insert into App-content
-    var target = document.querySelector('.App-content') || document.querySelector('.IndexPage') || document.body;
-    if (target.firstChild) {
-      target.insertBefore(wrapper, target.firstChild);
+    // Insert into .container after any Alert elements (so Alert stays at top)
+    var container = document.querySelector('.IndexPage > .container') || document.querySelector('.App-content > .container');
+    if (container) {
+      // Find the last Alert element
+      var alerts = container.querySelectorAll(':scope > .Alert');
+      if (alerts.length > 0) {
+        // Insert after the last Alert
+        var lastAlert = alerts[alerts.length - 1];
+        if (lastAlert.nextSibling) {
+          container.insertBefore(wrapper, lastAlert.nextSibling);
+        } else {
+          container.appendChild(wrapper);
+        }
+      } else {
+        // No Alert yet, insert at the beginning
+        if (container.firstChild) {
+          container.insertBefore(wrapper, container.firstChild);
+        } else {
+          container.appendChild(wrapper);
+        }
+      }
+      
+      // CRITICAL: Use MutationObserver to immediately move Alerts/App-notices to top when they appear
+      // This ensures Alert/App-notices is always above melon-homepage even if added after Melon renders
+      var _alertObserver = new MutationObserver(function(mutations) {
+        // Try multiple possible containers
+        var containers = [
+          document.querySelector('.IndexPage > .container'),
+          document.querySelector('.App-content > .container'),
+          document.querySelector('.IndexPage'),
+          document.querySelector('.App-content')
+        ].filter(Boolean);
+        
+        var homepage = document.getElementById('melon-homepage');
+        if (containers.length === 0 || !homepage) return;
+        
+        var container = containers[0];
+        
+        // Check if any Alert or App-notices was added
+        var hasNewAlert = false;
+        mutations.forEach(function(mutation) {
+          mutation.addedNodes.forEach(function(node) {
+            if (node.nodeType === 1 && node.classList) {
+              if (node.classList.contains('Alert') || node.classList.contains('App-notices') || node.id === 'notices') {
+                hasNewAlert = true;
+              }
+            }
+          });
+        });
+        
+        if (!hasNewAlert) return;
+        
+        // Move all Alerts and App-notices to the very top of the first valid container
+        var alerts = [];
+        Array.from(container.children).forEach(function(child) {
+          if (child.classList.contains('Alert') || child.classList.contains('App-notices') || child.id === 'notices') {
+            alerts.push(child);
+          }
+        });
+        
+        if (alerts.length > 0 && container.firstChild !== alerts[0]) {
+          alerts.forEach(function(alert) {
+            container.insertBefore(alert, container.firstChild);
+          });
+        }
+      });
+      
+      // Start observing immediately - watch multiple possible containers
+      var containersToWatch = [
+        document.querySelector('.IndexPage > .container'),
+        document.querySelector('.App-content > .container'),
+        document.querySelector('.IndexPage'),
+        document.querySelector('.App-content')
+      ].filter(Boolean);
+      
+      containersToWatch.forEach(function(ct) {
+        _alertObserver.observe(ct, { childList: true });
+      });
+      
+      // Also run an immediate check (in case Alert was added before observer started)
+      function _moveAlertsToTop() {
+        var containers = [
+          document.querySelector('.IndexPage > .container'),
+          document.querySelector('.App-content > .container'),
+          document.querySelector('.IndexPage'),
+          document.querySelector('.App-content')
+        ].filter(Boolean);
+        
+        var homepage = document.getElementById('melon-homepage');
+        if (containers.length === 0 || !homepage) return;
+        
+        var container = containers[0];
+        
+        var alerts = [];
+        Array.from(container.children).forEach(function(child) {
+          if (child.classList.contains('Alert') || child.classList.contains('App-notices') || child.id === 'notices') {
+            alerts.push(child);
+          }
+        });
+        
+        if (alerts.length > 0 && container.firstChild !== alerts[0]) {
+          alerts.forEach(function(alert) {
+            container.insertBefore(alert, container.firstChild);
+          });
+        }
+      }
+      
+      // Run immediately and then periodically for 30 seconds
+      _moveAlertsToTop();
+      var _alertCheckCount = 0;
+      var _alertCheckInterval = setInterval(function() {
+        _moveAlertsToTop();
+        _alertCheckCount++;
+        if (_alertCheckCount >= 60) { // 60 * 500ms = 30 seconds
+          clearInterval(_alertCheckInterval);
+        }
+      }, 500);
     } else {
-      target.appendChild(wrapper);
+      // Fallback: insert into App-content
+      var target = document.querySelector('.App-content') || document.querySelector('.IndexPage') || document.body;
+      if (target.firstChild) {
+        target.insertBefore(wrapper, target.firstChild);
+      } else {
+        target.appendChild(wrapper);
+      }
+      
+      // Also set up MutationObserver for this fallback case
+      function _moveNoticesToTopFallback() {
+        var target = document.querySelector('.App-content') || document.querySelector('.IndexPage');
+        var homepage = document.getElementById('melon-homepage');
+        if (!target || !homepage) return;
+        
+        var notices = [];
+        Array.from(target.children).forEach(function(child) {
+          if (child.classList.contains('Alert') || child.classList.contains('App-notices') || child.id === 'notices') {
+            notices.push(child);
+          }
+        });
+        
+        if (notices.length > 0 && target.firstChild !== notices[0]) {
+          notices.forEach(function(notice) {
+            target.insertBefore(notice, target.firstChild);
+          });
+        }
+      }
+      
+      _moveNoticesToTopFallback();
+      setInterval(_moveNoticesToTopFallback, 500);
     }
 
     // Hide ALL default Flarum IndexPage content via JS (more reliable than CSS :has())
@@ -660,19 +885,30 @@ app.initializers.add('yannisme-melon-category-cards', function(app) {
     if (!indexPage) return;
 
     // Get all direct children of IndexPage (or .container inside it)
+    // IMPORTANT: Never hide Alert components - they contain important user notifications
     var containers = indexPage.querySelectorAll(':scope > .container, :scope > .IndexPage-nav, :scope > .IndexPage-toolbar, :scope > .Hero, :scope > .WelcomeHero, :scope > .DiscussionList, :scope > .DiscussionListPagination, :scope > .Pagination, :scope > .IndexPage-search');
     containers.forEach(function(el) {
-      if (!el.classList.contains('melon-homepage')) {
+      // Skip Alert components - they need to remain visible for user notifications
+      if (!el.classList.contains('melon-homepage') && !el.classList.contains('Alert')) {
         el.classList.add('melon-hidden');
       }
     });
 
     // Also hide anything inside .container that's not melon-homepage
+    // IMPORTANT: Never hide Alert components - they contain important user notifications
     var innerContainers = indexPage.querySelectorAll('.container');
     innerContainers.forEach(function(container) {
       Array.from(container.children).forEach(function(child) {
-        if (!child.classList.contains('melon-homepage')) {
+        if (!child.classList.contains('melon-homepage') && !child.classList.contains('Alert')) {
           child.classList.add('melon-hidden');
+        }
+      });
+      // Move Alert components to the top, before melon-homepage
+      var alerts = container.querySelectorAll(':scope > .Alert');
+      var homepage = container.querySelector('.melon-homepage');
+      alerts.forEach(function(alert) {
+        if (homepage && homepage.previousElementSibling !== alert) {
+          container.insertBefore(alert, homepage);
         }
       });
     });
@@ -697,27 +933,36 @@ app.initializers.add('yannisme-melon-category-cards', function(app) {
           // Re-hide any default content that Mithril may have re-inserted
           var ip = document.querySelector('.IndexPage');
           if (!ip) return;
-          var hidSomething = false;
+          var didSomething = false;
           ip.querySelectorAll('.container').forEach(function(container) {
             Array.from(container.children).forEach(function(child) {
-              if (!child.classList.contains('melon-homepage') && !child.classList.contains('melon-hidden')) {
+              // Never hide Alert components - they contain important user notifications like email confirmations
+              if (!child.classList.contains('melon-homepage') && !child.classList.contains('Alert') && !child.classList.contains('melon-hidden')) {
                 child.classList.add('melon-hidden');
-                hidSomething = true;
+                didSomething = true;
+              }
+            });
+            // Keep Alert above melon-homepage - CRITICAL for email confirmation alerts
+            var hp = container.querySelector('.melon-homepage');
+            container.querySelectorAll(':scope > .Alert').forEach(function(alert) {
+              if (hp && alert !== hp.previousElementSibling) {
+                container.insertBefore(alert, hp);
+                didSomething = true;
               }
             });
           });
           ip.querySelectorAll(':scope > .container, :scope > .IndexPage-nav, :scope > .IndexPage-toolbar, :scope > .Hero, :scope > .WelcomeHero, :scope > .DiscussionList, :scope > .DiscussionListPagination, :scope > .Pagination').forEach(function(el) {
-            if (!el.classList.contains('melon-homepage') && !el.classList.contains('melon-hidden')) {
+            if (!el.classList.contains('melon-homepage') && !el.classList.contains('Alert') && !el.classList.contains('melon-hidden')) {
               el.classList.add('melon-hidden');
-              hidSomething = true;
+              didSomething = true;
             }
           });
-          // Auto-disconnect after 5s of successful hiding
-          if (hidSomething) {
+          // Keep observer alive longer (30s) to handle delayed Mithril re-renders
+          if (didSomething) {
             if (_hideAutoDisconnect) clearTimeout(_hideAutoDisconnect);
             _hideAutoDisconnect = setTimeout(function() {
               if (hideObserver) { hideObserver.disconnect(); hideObserver = null; }
-            }, 5000);
+            }, 30000);
           }
         });
       });
@@ -918,8 +1163,12 @@ app.initializers.add('yannisme-melon-category-cards', function(app) {
         if (u) disc._authorName = u.displayName || u.username;
       }
     });
+    // Sort: sticky first, then by lastPostedAt
     discussions.sort(function(a, b) {
-      return new Date(b.attributes.createdAt || 0) - new Date(a.attributes.createdAt || 0);
+      var aSticky = a.attributes.isSticky ? 1 : 0;
+      var bSticky = b.attributes.isSticky ? 1 : 0;
+      if (aSticky !== bSticky) return bSticky - aSticky;
+      return new Date(b.attributes.lastPostedAt || 0) - new Date(a.attributes.lastPostedAt || 0);
     });
     renderHomepage(container, tags, discussions, users, allTags);
     hideDefaultIndexPage();
